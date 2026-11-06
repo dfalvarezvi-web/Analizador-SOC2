@@ -246,4 +246,86 @@ if uploaded_file is not None:
                 self.set_font('Arial', 'B', 9)
                 self.set_text_color(250, 204, 21)
                 self.set_xy(10, 4)
-                self.cell(100, 8, 'SOC ADVISORY DAV | INFORME TÉCNICO EJECUTIVO', 0, 0,
+                self.cell(100, 8, 'SOC ADVISORY DAV | INFORME TÉCNICO EJECUTIVO', 0, 0, 'L')
+                self.set_xy(110, 4)
+                self.cell(90, 8, 'ISO/IEC 27001:2022 COMPLIANCE', 0, 0, 'R')
+                self.ln(20)
+                
+            def footer(self):
+                self.set_y(-12)
+                self.set_font('Arial', 'I', 7.5)
+                self.set_text_color(128, 128, 128)
+                self.cell(0, 8, f'Página {self.page_no()} | SOC ADVISORY DAV - Documento Confidencial', 0, 0, 'C')
+
+        def generar_pdf_consultoria(df_resumen, nombre_log, hash_log):
+            pdf = PDFReport()
+            pdf.add_page()
+            
+            pdf.set_font("Arial", "B", 12)
+            pdf.set_text_color(30, 27, 75)
+            pdf.cell(0, 6, "INFORME DE AUDITORÍA FORENSE Y CUMPLIMIENTO SGSI", 0, 1, "L")
+            pdf.set_font("Arial", "", 8)
+            pdf.set_text_color(100, 100, 100)
+            pdf.cell(0, 4, f"Fecha de Emisión: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')} | Marco: ISO/IEC 27001:2022", 0, 1, "L")
+            pdf.ln(2)
+            
+            pdf.set_fill_color(245, 243, 255)
+            y_meta = pdf.get_y()
+            pdf.rect(10, y_meta, 190, 15, 'F')
+            pdf.set_xy(12, y_meta + 2)
+            pdf.set_font("Arial", "B", 7.5)
+            pdf.set_text_color(30, 27, 75)
+            pdf.cell(90, 4, f"Artefacto: {nombre_log[:45]}", 0, 0)
+            pdf.cell(95, 4, f"Total Registros: {len(df_resumen)}", 0, 1)
+            pdf.set_x(12)
+            pdf.cell(185, 4, f"Hash SHA-256: {hash_log}", 0, 1)
+            pdf.set_y(y_meta + 18)
+            
+            pdf.set_font("Arial", "B", 9)
+            pdf.set_text_color(30, 27, 75)
+            pdf.cell(0, 5, "1. Resumen Ejecutivo y Detalle del Análisis Realizado", 0, 1)
+            pdf.set_font("Arial", "", 7.5)
+            pdf.set_text_color(50, 50, 50)
+            resumen_texto = (
+                f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre el archivo '{nombre_log}'. "
+                f"Se detectaron {criticos_cnt} eventos críticos y {altos_cnt} anomalías operativas. "
+                f"El análisis coteja la telemetría con controles normativos para mitigar desvíos del SGSI y riesgos de explotación."
+            )
+            pdf.multi_cell(0, 4, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
+            pdf.ln(3)
+            
+            pie_path = None
+            try:
+                pdf.set_font("Arial", "B", 9)
+                pdf.set_text_color(30, 27, 75)
+                pdf.cell(0, 5, "2. Análisis Estadístico y Distribución de Riesgos", 0, 1)
+                
+                fig, ax = plt.subplots(figsize=(4, 1.8))
+                counts = df_resumen['Criticidad_Consultoria'].value_counts()
+                chart_colors = ['#eab308', '#a855f7', '#7c3aed', '#6b21a8'][:len(counts)]
+                ax.pie(counts, labels=counts.index, autopct='%1.1f%%', colors=chart_colors, textprops={'fontsize': 7})
+                
+                pie_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
+                plt.savefig(pie_path, bbox_inches='tight', dpi=180)
+                plt.close(fig)
+                
+                img_y = pdf.get_y() + 1
+                pdf.image(pie_path, x=60, y=img_y, w=90)
+                pdf.set_y(img_y + 36)
+            except Exception:
+                pdf.ln(2)
+
+            if pie_path and os.path.exists(pie_path):
+                try: os.unlink(pie_path)
+                except: pass
+
+            pdf.set_font("Arial", "B", 9)
+            pdf.set_text_color(30, 27, 75)
+            pdf.cell(0, 5, "3. Plan de Acción, Tiempos y Controles ISO/IEC 27001", 0, 1)
+            pdf.ln(1)
+            
+            pdf.set_font("Arial", "B", 7.5)
+            pdf.set_fill_color(230, 225, 250)
+            pdf.cell(45, 5, "Plazo / Horizonte", 1, 0, "C", fill=True)
+            pdf.cell(80, 5, "Acciones de Mitigación / Medida", 1, 0, "C", fill=True)
+            pdf.cell(65, 5, "Control
