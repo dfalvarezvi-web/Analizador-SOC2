@@ -209,76 +209,81 @@ if uploaded_file is not None:
         class PDFReport(FPDF):
             def __init__(self):
                 super().__init__(orientation='P', unit='mm', format='A4')
-                self.set_auto_page_break(auto=True, margin=15)
+                self.set_auto_page_break(auto=True, margin=10)
                 
             def header(self):
                 self.set_fill_color(30, 27, 75)
-                self.rect(0, 0, 210, 16, 'F')
-                self.set_font('Arial', 'B', 9)
+                self.rect(0, 0, 210, 14, 'F')
+                self.set_font('Arial', 'B', 8.5)
                 self.set_text_color(250, 204, 21)
-                self.set_xy(10, 4)
+                self.set_xy(10, 3)
                 self.cell(100, 8, 'SOC ADVISORY DAV | INFORME TÉCNICO EJECUTIVO', 0, 0, 'L')
-                self.set_xy(110, 4)
+                self.set_xy(110, 3)
                 self.cell(90, 8, 'ISO/IEC 27001:2022 COMPLIANCE', 0, 0, 'R')
-                self.ln(20)
+                self.set_y(16)
                 
             def footer(self):
-                self.set_y(-12)
-                self.set_font('Arial', 'I', 7.5)
+                self.set_y(-10)
+                self.set_font('Arial', 'I', 7)
                 self.set_text_color(128, 128, 128)
-                self.cell(0, 8, f'Página {self.page_no()} | SOC ADVISORY DAV - Documento Confidencial', 0, 0, 'C')
+                self.cell(0, 6, f'Página {self.page_no()} | SOC ADVISORY DAV - Documento Confidencial', 0, 0, 'C')
 
         def generar_pdf_consultoria(df_resumen, nombre_log, hash_log):
             pdf = PDFReport()
             pdf.add_page()
             
-            pdf.set_font("Arial", "B", 12)
+            # Título principal y fecha
+            pdf.set_font("Arial", "B", 11)
             pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 6, "INFORME DE AUDITORÍA FORENSE Y CUMPLIMIENTO SGSI", 0, 1, "L")
-            pdf.set_font("Arial", "", 8)
+            pdf.cell(0, 5, "INFORME DE AUDITORÍA FORENSE Y CUMPLIMIENTO SGSI", 0, 1, "L")
+            pdf.set_font("Arial", "", 7.5)
             pdf.set_text_color(100, 100, 100)
-            pdf.cell(0, 4, f"Fecha de Emisión: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')} | Marco: ISO/IEC 27001:2022", 0, 1, "L")
-            pdf.ln(2)
+            pdf.cell(0, 3.5, f"Fecha de Emisión: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')} | Marco: ISO/IEC 27001:2022", 0, 1, "L")
+            pdf.ln(1)
             
+            # Caja Metadatos
             pdf.set_fill_color(245, 243, 255)
             y_meta = pdf.get_y()
-            pdf.rect(10, y_meta, 190, 15, 'F')
-            pdf.set_xy(12, y_meta + 2)
-            pdf.set_font("Arial", "B", 7.5)
+            pdf.rect(10, y_meta, 190, 13, 'F')
+            pdf.set_xy(12, y_meta + 1.5)
+            pdf.set_font("Arial", "B", 7)
             pdf.set_text_color(30, 27, 75)
-            pdf.cell(90, 4, f"Artefacto: {nombre_log[:45]}", 0, 0)
-            pdf.cell(95, 4, f"Total Registros: {len(df_resumen)}", 0, 1)
+            pdf.cell(90, 3.5, f"Artefacto: {nombre_log[:45]}", 0, 0)
+            pdf.cell(95, 3.5, f"Total Registros: {len(df_resumen)}", 0, 1)
             pdf.set_x(12)
-            pdf.cell(185, 4, f"Hash SHA-256: {hash_log}", 0, 1)
-            pdf.set_y(y_meta + 18)
+            pdf.cell(185, 3.5, f"Hash SHA-256: {hash_log}", 0, 1)
+            pdf.set_y(y_meta + 15)
             
-            pdf.set_font("Arial", "B", 9)
+            # 1. Resumen Ejecutivo
+            pdf.set_font("Arial", "B", 8.5)
             pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 5, "1. Resumen Ejecutivo y Detalle del Análisis Realizado", 0, 1)
-            pdf.set_font("Arial", "", 7.5)
+            pdf.cell(0, 4.5, "1. Resumen Ejecutivo y Detalle del Análisis Realizado", 0, 1)
+            pdf.set_font("Arial", "", 7)
             pdf.set_text_color(50, 50, 50)
             resumen_texto = f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre el archivo '{nombre_log}'. Se detectaron {criticos_cnt} eventos críticos y {altos_cnt} anomalías operativas. El análisis coteja la telemetría con controles normativos para mitigar desvíos del SGSI y riesgos de explotación."
-            pdf.multi_cell(0, 4, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
-            pdf.ln(3)
+            pdf.multi_cell(0, 3.5, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
+            pdf.ln(2)
             
+            # 2. Gráfico Estadístico (Control estricto de posición vertical Y)
             pie_path = None
             try:
-                pdf.set_font("Arial", "B", 9)
+                pdf.set_font("Arial", "B", 8.5)
                 pdf.set_text_color(30, 27, 75)
-                pdf.cell(0, 5, "2. Análisis Estadístico y Distribución de Riesgos", 0, 1)
+                pdf.cell(0, 4.5, "2. Análisis Estadístico y Distribución de Riesgos", 0, 1)
                 
-                fig, ax = plt.subplots(figsize=(4, 1.8))
+                fig, ax = plt.subplots(figsize=(3.2, 1.3))
                 counts = df_resumen['Criticidad_Consultoria'].value_counts()
                 chart_colors = ['#eab308', '#a855f7', '#7c3aed', '#6b21a8'][:len(counts)]
-                ax.pie(counts, labels=counts.index, autopct='%1.1f%%', colors=chart_colors, textprops={'fontsize': 7})
+                ax.pie(counts, labels=counts.index, autopct='%1.1f%%', colors=chart_colors, textprops={'fontsize': 6})
                 
                 pie_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
                 plt.savefig(pie_path, bbox_inches='tight', dpi=180)
                 plt.close(fig)
                 
                 img_y = pdf.get_y() + 1
-                pdf.image(pie_path, x=60, y=img_y, w=90)
-                pdf.set_y(img_y + 36)
+                pdf.image(pie_path, x=65, y=img_y, w=75)
+                # Salto de línea estricto posterior a la altura del gráfico (26 mm)
+                pdf.set_y(img_y + 27)
             except Exception:
                 pdf.ln(2)
 
@@ -286,43 +291,45 @@ if uploaded_file is not None:
                 try: os.unlink(pie_path)
                 except: pass
 
-            pdf.set_font("Arial", "B", 9)
+            # 3. Plan de Acción e ISO 27001
+            pdf.set_font("Arial", "B", 8.5)
             pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 5, "3. Plan de Acción, Tiempos y Controles ISO/IEC 27001", 0, 1)
+            pdf.cell(0, 4.5, "3. Plan de Acción, Tiempos y Controles ISO/IEC 27001", 0, 1)
             pdf.ln(1)
             
-            pdf.set_font("Arial", "B", 7.5)
+            pdf.set_font("Arial", "B", 7)
             pdf.set_fill_color(230, 225, 250)
-            pdf.cell(45, 5, "Plazo / Horizonte", 1, 0, "C", fill=True)
-            pdf.cell(80, 5, "Acciones de Mitigación / Medida", 1, 0, "C", fill=True)
-            pdf.cell(65, 5, "Control ISO 27001:2022", 1, 1, "C", fill=True)
+            pdf.cell(40, 4, "Plazo / Horizonte", 1, 0, "C", fill=True)
+            pdf.cell(85, 4, "Acciones de Mitigación / Medida", 1, 0, "C", fill=True)
+            pdf.cell(65, 4, "Control ISO 27001:2022", 1, 1, "C", fill=True)
             
-            pdf.set_font("Arial", "", 7)
-            pdf.cell(45, 5, "Inmediato (0 - 24 h)", 1, 0)
-            pdf.cell(80, 5, "Aislamiento de hosts y revocación de credenciales.", 1, 0)
-            pdf.cell(65, 5, "Control A.5.24 (Gestión de Incidentes)", 1, 1)
-            
-            pdf.cell(45, 5, "Corto Plazo (1 - 7 días)", 1, 0)
-            pdf.cell(80, 5, "Auditoría de comandos y hardening perimetral.", 1, 0)
-            pdf.cell(65, 5, "Controles A.8.7 y A.8.16 (Monitoreo)", 1, 1)
-            
-            pdf.cell(45, 5, "Largo Plazo (30 - 90 días)", 1, 0)
-            pdf.cell(80, 5, "Mínimo privilegio y automatización SIEM.", 1, 0)
-            pdf.cell(65, 5, "Controles A.5.17 y A.9.12 (Accesos)", 1, 1)
-            pdf.ln(3)
-            
-            pdf.set_font("Arial", "B", 9)
-            pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 5, "4. Principales Hallazgos Forenses (Top Registros)", 0, 1)
             pdf.set_font("Arial", "", 6.5)
+            pdf.cell(40, 4, "Inmediato (0 - 24 h)", 1, 0)
+            pdf.cell(85, 4, "Aislamiento de hosts y revocación de credenciales.", 1, 0)
+            pdf.cell(65, 4, "Control A.5.24 (Gestión de Incidentes)", 1, 1)
             
-            for _, row in df_resumen.head(10).iterrows():
+            pdf.cell(40, 4, "Corto Plazo (1 - 7 días)", 1, 0)
+            pdf.cell(85, 4, "Auditoría de comandos y hardening perimetral.", 1, 0)
+            pdf.cell(65, 4, "Controles A.8.7 y A.8.16 (Monitoreo)", 1, 1)
+            
+            pdf.cell(40, 4, "Largo Plazo (30 - 90 días)", 1, 0)
+            pdf.cell(85, 4, "Mínimo privilegio y automatización SIEM.", 1, 0)
+            pdf.cell(65, 4, "Controles A.5.17 y A.9.12 (Accesos)", 1, 1)
+            pdf.ln(2)
+            
+            # 4. Hallazgos Forenses
+            pdf.set_font("Arial", "B", 8.5)
+            pdf.set_text_color(30, 27, 75)
+            pdf.cell(0, 4.5, "4. Principales Hallazgos Forenses (Top Registros)", 0, 1)
+            pdf.set_font("Arial", "", 6)
+            
+            for _, row in df_resumen.head(8).iterrows():
                 log_id = str(row.get('Log_ID', 'N/A'))
                 host = str(row.get('Hostname', 'N/A'))
                 crit = str(row.get('Criticidad_Consultoria', 'N/A'))
                 just = str(row.get('Justificacion_Tecnica', 'N/A'))
                 linea = f"[{log_id}] Host: {host} | Nivel: {crit} - {just}"
-                pdf.cell(0, 3.8, linea.encode('latin-1', 'replace').decode('latin-1'), 0, 1)
+                pdf.cell(0, 3.2, linea.encode('latin-1', 'replace').decode('latin-1'), 0, 1)
                 
             tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
             pdf.output(tmp_file.name)
