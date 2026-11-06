@@ -78,9 +78,9 @@ if uploaded_file is not None:
             res = str(row.get('Result', '')).lower()
             
             if 'high' in sev or 'critical' in sev or any(k in desc for k in ['rce', 'malware', 'ransomware', 'exploit']) or any(c in cmd for c in ['powershell', 'cmd.exe /c', 'invoke-webrequest', 'base64']):
-                return 'Crítico', 'Ejecución de código malicioso o explotación. Incumplimiento potencial de Controles ISO 27001: A.8.7 (Protección contra Malware) y A.8.16 (Monitoreo).'
+                return 'Crítico', 'Ejecución de código malicioso o explotación. Controles ISO 27001: A.8.7 (Malware) y A.8.16 (Monitoreo).'
             elif 'medium' in sev or 'warning' in sev or 'fail' in res or 'denied' in res:
-                return 'Alto', 'Fallo de autenticación reiterado o acceso denegado. Impacto en Control ISO 27001: A.9.4.2 / A.5.17 (Control de Acceso).'
+                return 'Alto', 'Fallo de autenticación reiterado o acceso denegado. Impacto en Control ISO 27001: A.9.4.2 / A.5.17 (Accesos).'
             elif 'informational' in sev and ('logon' in desc or 'process' in desc):
                 return 'Medio', 'Evento operativo relevante. Trazabilidad requerida por Control ISO 27001: A.8.15 (Registro de Eventos).'
             else:
@@ -105,7 +105,7 @@ if uploaded_file is not None:
         hosts_sel = st.sidebar.multiselect("Filtrar por Hostname:", options=hosts_disponibles, default=hosts_disponibles)
         
         if not hosts_sel or not severidades_sel:
-            st.warning("⚠️ Por favor, selecciona al menos una criticidad y un host en la barra lateral para visualizar los datos.")
+            st.warning("⚠️ Por favor, selecciona al menos una criticidad y un host en la barra lateral.")
             st.stop()
 
         df_filtrado = df_analisis[
@@ -118,11 +118,7 @@ if uploaded_file is not None:
         # ----------------------------------------------------
         st.markdown("---")
         st.subheader("📑 Memoria Técnica y Detalle del Análisis Realizado")
-        st.markdown(
-            "El presente análisis evalúa la telemetría y los registros de eventos de seguridad (SIEM) ingestados mediante "
-            "un motor de correlación heurística basado en matrices de riesgo corporativas y marcos de referencia internacionales "
-            "como **MITRE ATT&CK** y **ISO/IEC 27001:2022**."
-        )
+        st.markdown("El presente análisis evalúa la telemetría y los registros de eventos de seguridad (SIEM) mediante un motor de correlación heurística basado en matrices de riesgo corporativas y marcos de referencia internacionales como **MITRE ATT&CK** y **ISO/IEC 27001:2022**.")
         st.markdown("---")
 
         # ----------------------------------------------------
@@ -157,13 +153,7 @@ if uploaded_file is not None:
 
         col_g1, col_g2 = st.columns(2)
         with col_g1:
-            fig_pie = px.pie(
-                df_filtrado, 
-                names='Criticidad_Consultoria', 
-                title='Distribución Porcentual de Riesgo',
-                color='Criticidad_Consultoria',
-                color_discrete_map=color_palette
-            )
+            fig_pie = px.pie(df_filtrado, names='Criticidad_Consultoria', title='Distribución Porcentual de Riesgo', color='Criticidad_Consultoria', color_discrete_map=color_palette)
             fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
             st.plotly_chart(fig_pie, use_container_width=True)
             
@@ -173,50 +163,31 @@ if uploaded_file is not None:
                 if not df_freq.empty:
                     df_freq['Time_Group'] = df_freq['Timestamp'].dt.floor('h')
                     df_freq_grouped = df_freq.groupby(['Time_Group', 'Criticidad_Consultoria']).size().reset_index(name='Frecuencia')
-                    fig_time = px.line(
-                        df_freq_grouped, 
-                        x='Time_Group', 
-                        y='Frecuencia', 
-                        color='Criticidad_Consultoria',
-                        title='Línea de Tiempo y Frecuencia de Incidentes',
-                        color_discrete_map=color_palette
-                    )
+                    fig_time = px.line(df_freq_grouped, x='Time_Group', y='Frecuencia', color='Criticidad_Consultoria', title='Línea de Tiempo y Frecuencia de Incidentes', color_discrete_map=color_palette)
                     fig_time.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
                     st.plotly_chart(fig_time, use_container_width=True)
 
         # ----------------------------------------------------
         # GUÍA MATRIZ DE RIESGO Y HALLAZGOS FORENSES
         # ----------------------------------------------------
-        with st.expander("ℹ️ Guía Ejecutiva: Interpretación de Niveles de Riesgo, Hallazgos Forenses y Medidas ISO 27001"):
-            st.markdown(
-                """
-                ### 🚨 1. Riesgo Crítico (Respuesta Inmediata: 0 - 24 h)
-                * **Implica:** Evidencia clara de compromiso de activos, ejecución remota de código (RCE) o actividad maliciosa activa.
-                * **Relación Forense:** Coincidencias con patrones como `PowerShell` codificado en Base64, uso de `Invoke-WebRequest` o alertas críticas del SIEM.
-                * **Medidas ISO 27001:** **A.5.24 (Gestión de Incidentes)** y **A.8.7 (Protección contra Malware)** — Aislamiento preventivo del host y revocación de credenciales.
+        with st.expander("ℹ️ Guía Ejecutiva: Interpretación de Niveles de Riesgo y Medidas ISO 27001"):
+            st.markdown("""
+            ### 🚨 1. Riesgo Crítico (Respuesta Inmediata: 0 - 24 h)
+            * **Implica:** Evidencia clara de compromiso de activos, ejecución remota de código (RCE) o actividad maliciosa activa.
+            * **Medidas ISO 27001:** **A.5.24 (Gestión de Incidentes)** y **A.8.7 (Protección contra Malware)** — Aislamiento del host y revocación de credenciales.
 
-                ---
+            ### ⚠️ 2. Riesgo Alto (Respuesta a Corto Plazo: 1 - 7 días)
+            * **Implica:** Anomalías operativas significativas que sugieren intentos de ataque o vectores de entrada fallidos.
+            * **Medidas ISO 27001:** **A.5.17 (Autenticación)** y **A.8.16 (Monitoreo)** — Bloqueo de IPs sospechosas y forzado de MFA.
 
-                ### ⚠️ 2. Riesgo Alto (Respuesta a Corto Plazo: 1 - 7 días)
-                * **Implica:** Anomalías operativas significativas que sugieren intentos de ataque o vectores de entrada fallidos.
-                * **Relación Forense:** Bloqueos por múltiples intentos fallidos de autenticación o eventos de acceso denegado (`Result: Denied / Fail`).
-                * **Medidas ISO 27001:** **A.5.17 (Autenticación)** y **A.8.16 (Monitoreo)** — Bloqueo preventivo de IPs sospechosas y forzado de MFA.
+            ### 🟣 3. Riesgo Medio (Respuesta a Mediano Plazo: 7 - 30 días)
+            * **Implica:** Operaciones administrativas relevantes que requieren auditoría y trazabilidad periódica.
+            * **Medidas ISO 27001:** **A.8.15 (Registro de Eventos)** — Trazabilidad de identificadores de usuario e IP de origen.
 
-                ---
-
-                ### 🟣 3. Riesgo Medio (Respuesta a Mediano Plazo: 7 - 30 días)
-                * **Implica:** Operaciones administrativas o de usuario relevantes que requieren auditoría y trazabilidad periódica.
-                * **Relación Forense:** Creación de procesos de sistema estándar o inicios de sesión fuera de jornada laboral.
-                * **Medidas ISO 27001:** **A.8.15 (Registro de Eventos)** — Trazabilidad de identificadores de usuario (`User`) e IP de origen.
-
-                ---
-
-                ### 🟢 4. Riesgo Bajo (Monitoreo Continuo)
-                * **Implica:** Operación habitual y rutinaria dentro de la línea base esperada de la infraestructura.
-                * **Relación Forense:** Trazas estándar de servicios en ejecución, inicios de sesión autorizados y comandos operativos sin anomalías.
-                * **Medidas ISO 27001:** **A.8.16 (Actividad de Monitoreo)** — Alimentación del repositorio de logs para validación de patrones de comportamiento.
-                """
-            )
+            ### 🟢 4. Riesgo Bajo (Monitoreo Continuo)
+            * **Implica:** Operación habitual y rutinaria dentro de la línea base esperada de la infraestructura.
+            * **Medidas ISO 27001:** **A.8.16 (Actividad de Monitoreo)** — Alimentación del repositorio de logs para validación de patrones.
+            """)
 
         # ----------------------------------------------------
         # 6. MATRIZ DETALLADA Y FILTRO DE JUSTIFICACIONES TÉCNICAS
@@ -286,11 +257,7 @@ if uploaded_file is not None:
             pdf.cell(0, 5, "1. Resumen Ejecutivo y Detalle del Análisis Realizado", 0, 1)
             pdf.set_font("Arial", "", 7.5)
             pdf.set_text_color(50, 50, 50)
-            resumen_texto = (
-                f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre el archivo '{nombre_log}'. "
-                f"Se detectaron {criticos_cnt} eventos críticos y {altos_cnt} anomalías operativas. "
-                f"El análisis coteja la telemetría con controles normativos para mitigar desvíos del SGSI y riesgos de explotación."
-            )
+            resumen_texto = f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre el archivo '{nombre_log}'. Se detectaron {criticos_cnt} eventos críticos y {altos_cnt} anomalías operativas. El análisis coteja la telemetría con controles normativos para mitigar desvíos del SGSI y riesgos de explotación."
             pdf.multi_cell(0, 4, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
             pdf.ln(3)
             
@@ -328,4 +295,57 @@ if uploaded_file is not None:
             pdf.set_fill_color(230, 225, 250)
             pdf.cell(45, 5, "Plazo / Horizonte", 1, 0, "C", fill=True)
             pdf.cell(80, 5, "Acciones de Mitigación / Medida", 1, 0, "C", fill=True)
-            pdf.cell(65, 5, "Control
+            pdf.cell(65, 5, "Control ISO 27001:2022", 1, 1, "C", fill=True)
+            
+            pdf.set_font("Arial", "", 7)
+            pdf.cell(45, 5, "Inmediato (0 - 24 h)", 1, 0)
+            pdf.cell(80, 5, "Aislamiento de hosts y revocación de credenciales.", 1, 0)
+            pdf.cell(65, 5, "Control A.5.24 (Gestión de Incidentes)", 1, 1)
+            
+            pdf.cell(45, 5, "Corto Plazo (1 - 7 días)", 1, 0)
+            pdf.cell(80, 5, "Auditoría de comandos y hardening perimetral.", 1, 0)
+            pdf.cell(65, 5, "Controles A.8.7 y A.8.16 (Monitoreo)", 1, 1)
+            
+            pdf.cell(45, 5, "Largo Plazo (30 - 90 días)", 1, 0)
+            pdf.cell(80, 5, "Mínimo privilegio y automatización SIEM.", 1, 0)
+            pdf.cell(65, 5, "Controles A.5.17 y A.9.12 (Accesos)", 1, 1)
+            pdf.ln(3)
+            
+            pdf.set_font("Arial", "B", 9)
+            pdf.set_text_color(30, 27, 75)
+            pdf.cell(0, 5, "4. Principales Hallazgos Forenses (Top Registros)", 0, 1)
+            pdf.set_font("Arial", "", 6.5)
+            
+            for _, row in df_resumen.head(10).iterrows():
+                log_id = str(row.get('Log_ID', 'N/A'))
+                host = str(row.get('Hostname', 'N/A'))
+                crit = str(row.get('Criticidad_Consultoria', 'N/A'))
+                just = str(row.get('Justificacion_Tecnica', 'N/A'))
+                linea = f"[{log_id}] Host: {host} | Nivel: {crit} - {just}"
+                pdf.cell(0, 3.8, linea.encode('latin-1', 'replace').decode('latin-1'), 0, 1)
+                
+            tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+            pdf.output(tmp_file.name)
+            return tmp_file.name
+
+        if "pdf_generated_path" not in st.session_state:
+            st.session_state.pdf_generated_path = None
+
+        if st.button("📄 Generar Informe Ejecutivo PDF Profesional (SOC ADVISORY DAV)"):
+            with st.spinner("Compilando reporte A4 corporativo, optimizando espacios y generando PDF..."):
+                st.session_state.pdf_generated_path = generar_pdf_consultoria(df_filtrado, file_name_original, file_hash)
+            st.success("¡Informe generado con éxito bajo estándares A4 ajustados!")
+
+        if st.session_state.pdf_generated_path and os.path.exists(st.session_state.pdf_generated_path):
+            with open(st.session_state.pdf_generated_path, "rb") as f:
+                st.download_button(
+                    label="⬇️ Descargar PDF Profesional para Cliente (SOC ADVISORY DAV)",
+                    data=f,
+                    file_name="Informe_ISO27001_SOC_ADVISORY_DAV.pdf",
+                    mime="application/pdf"
+                )
+                
+    except Exception as e:
+        st.error(f"Error al procesar el archivo Excel. Detalles: {e}")
+else:
+    st.info("👈 Por favor, carga tu archivo de logs (`.xlsx`) en la barra lateral para iniciar la consultoría de seguridad con SOC ADVISORY DAV.")
