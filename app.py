@@ -6,15 +6,42 @@ import tempfile
 import os
 import hashlib
 
-# Configuración inicial de la página
+# ----------------------------------------------------
+# CONFIGURACIÓN INICIAL Y ESTILOS VISUALES CORPORATIVOS
+# ----------------------------------------------------
 st.set_page_config(
-    page_title="SOC Advisory - Auditoría ISO 27001 & Ciberseguridad",
+    page_title="SOC ADVISORY DAV - Auditoría y Ciberseguridad",
     page_icon="🛡️",
     layout="wide"
 )
 
-st.title("🛡️ Centro de Operaciones de Seguridad (SOC) | Consultoría & SGSI ISO 27001")
-st.markdown("Plataforma avanzada de análisis forense, correlación de eventos y trazabilidad normativa bajo estándares internacionales.")
+# Inyección de estilos CSS para dar apariencia de SaaS de Ciberseguridad de Alta Gama
+st.markdown("""
+    <style>
+    .main {
+        background-color: #0f172a;
+        color: #f8fafc;
+    }
+    .stMetric {
+        background-color: #1e293b;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #334155;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .custom-card {
+        background-color: #1e293b;
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid #334155;
+        margin-bottom: 20px;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Título Principal con la nueva identidad
+st.title("🛡️ SOC ADVISORY DAV | Centro de Operaciones de Seguridad")
+st.markdown("### Plataforma Avanzada de Análisis Forense, Correlación SIEM y Gobernanza SGSI")
 
 # ----------------------------------------------------
 # 1. CARGA Y NORMALIZACIÓN DE DATOS
@@ -36,10 +63,11 @@ if uploaded_file is not None:
         
         st.sidebar.success("¡Logs cargados y normalizados con éxito!")
         
-        with st.expander("🔍 Vista previa de registros crudos (Raw Logs) y Cadena de Custodia"):
-            st.text(f"Nombre del archivo: {file_name_original}")
-            st.text(f"Hash SHA-256 (Íntegro): {file_hash}")
-            st.dataframe(df, use_container_width=True)
+        with st.expander("🔍 Ver Detalle del Artefacto y Cadena de Custodia (Hash SHA-256)"):
+            st.text(f"• Nombre del archivo analizado: {file_name_original}")
+            I_hash_msg = f"• Hash SHA-256 (Garantía de Integridad): {file_hash}"
+            st.text(I_hash_msg)
+            st.dataframe(df.head(10), use_container_width=True)
             
         # ----------------------------------------------------
         # 2. MOTOR DE CORRELACIÓN Y ALINEACIÓN ISO 27001
@@ -87,9 +115,32 @@ if uploaded_file is not None:
         ]
 
         # ----------------------------------------------------
-        # 4. DASHBOARD EJECUTIVO Y ALERTAS DINÁMICAS
+        # 4. EXPLICACIÓN DETALLADA DEL ANÁLISIS REALIZADO (NUEVA SECCIÓN)
         # ----------------------------------------------------
-        st.header("📊 4. Dashboard Ejecutivo de Incidentes y Frecuencia")
+        st.markdown("---")
+        st.subheader("📑 Memoria Técnica y Detalle del Análisis Realizado")
+        st.markdown(
+            "El presente análisis evalúa la telemetría y los registros de eventos de seguridad (SIEM) ingestados mediante "
+            "un motor de correlación heurística basado en matrices de riesgo corporativas y marcos de referencia internacionales "
+            "como **MITRE ATT&CK** y **ISO/IEC 27001:2022**. El proceso contempla:"
+        )
+        col_ex1, col_ex2 = st.columns(2)
+        with col_ex1:
+            st.markdown(
+                "* **Normalización y Custodia:** Estandarización de campos temporales (`Timestamp`), hosts y comandos de consola, "
+                "respaldados mediante un hash criptográfico SHA-256 para garantizar la inalterabilidad de la evidencia forense."
+            )
+        with col_ex2:
+            st.markdown(
+                "* **Evaluación de Criticidad:** Ponderación dinámica de severidades, patrones de comandos anómalos (ej. uso no autorizado de "
+                "PowerShell o codificación Base64) y fallos perimetrales para clasificar el impacto real sobre los activos."
+            )
+        st.markdown("---")
+
+        # ----------------------------------------------------
+        # 5. DASHBOARD EJECUTIVO Y ALERTAS DINÁMICAS
+        # ----------------------------------------------------
+        st.header("📊 Dashboard Ejecutivo de Incidentes y Frecuencia")
         
         total_logs = len(df_filtrado)
         criticos_cnt = len(df_filtrado[df_filtrado['Criticidad_Consultoria'] == 'Crítico'])
@@ -118,6 +169,7 @@ if uploaded_file is not None:
                 color='Criticidad_Consultoria',
                 color_discrete_map={'Crítico':'#ff4b4b', 'Alto':'#ffa15a', 'Medio':'#ffcc00', 'Bajo':'#00cc96'}
             )
+            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
             st.plotly_chart(fig_pie, use_container_width=True)
             
         with col_g2:
@@ -134,75 +186,138 @@ if uploaded_file is not None:
                         title='Línea de Tiempo y Frecuencia de Incidentes',
                         color_discrete_map={'Crítico':'#ff4b4b', 'Alto':'#ffa15a', 'Medio':'#ffcc00', 'Bajo':'#00cc96'}
                     )
+                    fig_time.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
                     st.plotly_chart(fig_time, use_container_width=True)
 
         # ----------------------------------------------------
-        # 5. MATRIZ DETALLADA Y PLAN DE CONSULTORÍA
+        # 6. MATRIZ DETALLADA Y PLAN DE CONSULTORÍA
         # ----------------------------------------------------
-        st.header("📋 5. Detalle de Registros y Hallazgos Forenses")
+        st.header("📋 Detalle de Registros y Hallazgos Forenses")
         columnas_vista = [col for col in ['Log_ID', 'Timestamp', 'Hostname', 'User', 'Source_IP', 'Event_Description', 'Severity', 'Criticidad_Consultoria', 'Justificacion_Tecnica'] if col in df_filtrado.columns]
         st.dataframe(df_filtrado[columnas_vista], use_container_width=True)
 
         # ----------------------------------------------------
-        # 6. GENERACIÓN DE INFORME PROFESIONAL EN PDF CON ALINEACIÓN ISO 27001
+        # 7. GENERACIÓN DE INFORME PROFESIONAL EN PDF (CON FORMATO A4, GRÁFICOS Y ESTILO CORPORATIVO DAV)
         # ----------------------------------------------------
-        st.header("📥 6. Exportación de Entregable Ejecutivo para Cliente")
+        st.header("📥 Exportación de Entregable Ejecutivo para Cliente")
         
-        def generar_pdf_consultoria(df_resumen, nombre_log, hash_log):
-            pdf = FPDF()
+        class PDFReport(FPDF):
+            def __init__(self):
+                super().__init__(orientation='P', unit='mm', format='A4')
+                self.set_auto_page_break(auto=True, margin=15)
+                
+            def header(self):
+                self.set_fill_color(24, 30, 54)
+                self.rect(0, 0, 210, 18, 'F')
+                self.set_font('Arial', 'B', 9)
+                self.set_text_color(255, 255, 255)
+                self.set_xy(10, 5)
+                self.cell(100, 8, 'SOC ADVISORY DAV | INFORME TÉCNICO EJECUTIVO', 0, 0, 'L')
+                self.set_xy(110, 5)
+                self.cell(90, 8, 'ISO/IEC 27001:2022 COMPLIANCE', 0, 0, 'R')
+                self.ln(22)
+                
+            def footer(self):
+                self.set_y(-12)
+                self.set_font('Arial', 'I', 7.5)
+                self.set_text_color(128, 128, 128)
+                self.cell(0, 8, f'Página {self.page_no()} | SOC ADVISORY DAV - Documento Confidencial', 0, 0, 'C')
+
+        def generar_pdf_consultoria(df_resumen, nombre_log, hash_log, fig_pie_obj, fig_time_obj):
+            pdf = PDFReport()
             pdf.add_page()
             
-            # Encabezado
-            pdf.set_font("Arial", "B", 12)
-            pdf.cell(0, 7, "INFORME TÉCNICO SOC & CUMPLIMIENTO ISO/IEC 27001", 0, 1, "C")
-            pdf.set_font("Arial", "I", 7.5)
-            pdf.cell(0, 4, "Análisis Forense, Gestión de Incidentes y Evaluación de Controles Normativos", 0, 1, "C")
-            pdf.ln(2)
+            pdf.set_font("Arial", "B", 13)
+            pdf.set_text_color(24, 30, 54)
+            pdf.cell(0, 6, "INFORME DE AUDITORÍA FORENSE Y CUMPLIMIENTO SGSI", 0, 1, "L")
+            pdf.set_font("Arial", "", 8.5)
+            pdf.set_text_color(100, 100, 100)
+            pdf.cell(0, 4, f"Fecha de Emisión: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')} | Marco: ISO/IEC 27001:2022", 0, 1, "L")
+            pdf.ln(3)
             
-            # Metadatos del artefacto
-            pdf.set_font("Arial", "B", 7.5)
-            pdf.cell(0, 4.5, f"Artefacto Analizado: {nombre_log}", 0, 1)
-            pdf.cell(0, 4.5, f"Hash SHA-256 (Integridad): {hash_log[:32]}...", 0, 1)
-            pdf.cell(0, 4.5, f"Fecha de Emisión: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')} | Total Registros: {len(df_resumen)}", 0, 1)
-            pdf.cell(0, 4.5, f"Críticos: {criticos_cnt} | Altos: {altos_cnt} | Marco de Referencia: ISO/IEC 27001:2022", 0, 1)
-            pdf.ln(2)
+            # Caja Metadatos
+            pdf.set_fill_color(240, 243, 246)
+            pdf.rect(10, pdf.get_y(), 190, 18, 'F')
+            pdf.set_xy(12, pdf.get_y() + 2)
+            pdf.set_font("Arial", "B", 8)
+            pdf.set_text_color(24, 30, 54)
+            pdf.cell(90, 4, f"Artefacto Analizado: {nombre_log}", 0, 0)
+            pdf.cell(95, 4, f"Total Registros Analizados: {len(df_resumen)}", 0, 1)
+            pdf.set_x(12)
+            pdf.cell(185, 4, f"Hash SHA-256 (Integridad Forense): {hash_log}", 0, 1)
+            pdf.ln(6)
             
-            # 1. Resumen Ejecutivo
-            pdf.set_font("Arial", "B", 8.5)
-            pdf.cell(0, 4.5, "1. Resumen Ejecutivo y Evaluación de Riesgo (ISO 27001 Cláusula 6)", 0, 1)
-            pdf.set_font("Arial", "", 6.5)
+            # Resumen Ejecutivo y Detalle del Análisis
+            pdf.set_font("Arial", "B", 9.5)
+            pdf.cell(0, 5, "1. Resumen Ejecutivo y Detalle del Análisis Realizado", 0, 1)
+            pdf.set_font("Arial", "", 8)
+            pdf.set_text_color(50, 50, 50)
             resumen_texto = (
-                f"La auditoría sobre el archivo '{nombre_log}' identifica {criticos_cnt} desviaciones críticas y "
-                f"{altos_cnt} anomalías operativas. Estos eventos impactan la efectividad del Sistema de Gestión de Seguridad de la Información (SGSI), "
-                f"requiriendo la aplicación inmediata de los controles de tratamiento de riesgos estipulados por la norma."
+                f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre el archivo '{nombre_log}'. "
+                f"Se detectaron {criticos_cnt} eventos críticos y {altos_cnt} anomalías operativas. "
+                f"El análisis coteja la telemetría con controles normativos para mitigar desvíos del SGSI y riesgos de explotación."
             )
-            pdf.multi_cell(0, 3, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
-            pdf.ln(1.5)
+            pdf.multi_cell(0, 4, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
+            pdf.ln(4)
             
-            # 2. Plan de Acción, Plazos y Controles ISO 27001
-            pdf.set_font("Arial", "B", 8.5)
-            pdf.cell(0, 4.5, "2. Plan de Acción, Tiempos y Controles ISO/IEC 27001 Asociados", 0, 1)
-            
-            pdf.set_font("Arial", "B", 7)
-            pdf.cell(0, 3.5, "[INMEDIATO / 0 - 24 Horas] Contención (Control ISO A.5.24 - Gestión de Incidentes):", 0, 1)
-            pdf.set_font("Arial", "", 6.5)
-            pdf.multi_cell(0, 3, "- Aislamiento preventivo de los hosts comprometidos para evitar propagación.\n- Revocación de sesiones y rotación obligatoria de credenciales afectadas.".encode('latin-1', 'replace').decode('latin-1'))
-            
-            pdf.set_font("Arial", "B", 7)
-            pdf.cell(0, 3.5, "[CORTO PLAZO / 1 - 7 Días] Mitigación (Controles ISO A.8.7 y A.8.16):", 0, 1)
-            pdf.set_font("Arial", "", 6.5)
-            pdf.multi_cell(0, 3, "- Auditoría profunda de comandos ejecutados vía consola (Process_CommandLine).\n- Reforzamiento del monitoreo y revisión de logs perimetrales.".encode('latin-1', 'replace').decode('latin-1'))
+            # Inserción de Gráficos Estadísticos
+            pie_path = None
+            time_path = None
+            try:
+                pdf.set_font("Arial", "B", 9.5)
+                pdf.set_text_color(24, 30, 54)
+                pdf.cell(0, 5, "2. Análisis Estadístico y Distribución de Riesgos", 0, 1)
+                pdf.ln(2)
+                
+                pie_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
+                fig_pie_obj.write_image(pie_path, width=400, height=250, scale=2)
+                pdf.image(pie_path, x=15, y=pdf.get_y(), w=85)
+                
+                if fig_time_obj is not None:
+                    time_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
+                    fig_time_obj.write_image(time_path, width=450, height=250, scale=2)
+                    pdf.image(time_path, x=110, y=pdf.get_y(), w=90)
+                
+                pdf.ln(45)
+            except Exception:
+                pdf.set_font("Arial", "I", 7.5)
+                pdf.cell(0, 4, "(Gráficos estadísticos procesados interactivamente en plataforma web)", 0, 1)
+                pdf.ln(3)
 
-            pdf.set_font("Arial", "B", 7)
-            pdf.cell(0, 3.5, "[LARGO PLAZO / 30 - 90 Días] Gobernanza (Controles ISO A.5.17 y A.9.12):", 0, 1)
-            pdf.set_font("Arial", "", 6.5)
-            pdf.multi_cell(0, 3, "- Despliegue de políticas estrictas de control de privilegios (Least Privilege).\n- Automatización de playbooks de respuesta en el SIEM y capacitación en ciberseguridad.".encode('latin-1', 'replace').decode('latin-1'))
-            pdf.ln(1.5)
+            for p in [pie_path, time_path]:
+                if p and os.path.exists(p):
+                    try: os.unlink(p)
+                    except: pass
+
+            # Plan de Acción e ISO 27001
+            pdf.set_font("Arial", "B", 9.5)
+            pdf.set_text_color(24, 30, 54)
+            pdf.cell(0, 5, "3. Plan de Acción, Tiempos y Controles ISO/IEC 27001", 0, 1)
+            pdf.ln(1)
             
-            # 3. Principales Hallazgos Forenses
-            pdf.set_font("Arial", "B", 8.5)
-            pdf.cell(0, 4.5, "3. Principales Hallazgos Forenses (Top Registros)", 0, 1)
-            pdf.set_font("Arial", "", 6)
+            pdf.set_font("Arial", "B", 8)
+            pdf.cell(45, 5, "Plazo / Horizonte", 1, 0, "C", fill=True)
+            pdf.cell(75, 5, "Acciones de Mitigación / Medida", 1, 0, "C", fill=True)
+            pdf.cell(70, 5, "Control ISO 27001:2022", 1, 1, "C", fill=True)
+            
+            pdf.set_font("Arial", "", 7.5)
+            pdf.cell(45, 6, "Inmediato (0 - 24 h)", 1, 0)
+            pdf.cell(75, 6, "Aislamiento de hosts y revocación de credenciales.", 1, 0)
+            pdf.cell(70, 6, "Control A.5.24 (Gestión de Incidentes)", 1, 1)
+            
+            pdf.cell(45, 6, "Corto Plazo (1 - 7 días)", 1, 0)
+            pdf.cell(75, 6, "Auditoría de comandos y hardening perimetral.", 1, 0)
+            pdf.cell(70, 6, "Controles A.8.7 y A.8.16 (Monitoreo)", 1, 1)
+            
+            pdf.cell(45, 6, "Largo Plazo (30 - 90 días)", 1, 0)
+            pdf.cell(75, 6, "Mínimo privilegio y automatización SIEM.", 1, 0)
+            pdf.cell(70, 6, "Controles A.5.17 y A.9.12 (Accesos)", 1, 1)
+            pdf.ln(4)
+            
+            # Hallazgos Forenses
+            pdf.set_font("Arial", "B", 9.5)
+            pdf.cell(0, 5, "4. Principales Hallazgos Forenses (Top Registros)", 0, 1)
+            pdf.set_font("Arial", "", 7)
             
             for _, row in df_resumen.head(15).iterrows():
                 log_id = str(row.get('Log_ID', 'N/A'))
@@ -210,7 +325,7 @@ if uploaded_file is not None:
                 crit = str(row.get('Criticidad_Consultoria', 'N/A'))
                 just = str(row.get('Justificacion_Tecnica', 'N/A'))
                 linea = f"[{log_id}] Host: {host} | Nivel: {crit} - {just}"
-                pdf.cell(0, 3, linea.encode('latin-1', 'replace').decode('latin-1'), 0, 1)
+                pdf.cell(0, 4, linea.encode('latin-1', 'replace').decode('latin-1'), 0, 1)
                 
             tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
             pdf.output(tmp_file.name)
@@ -219,21 +334,22 @@ if uploaded_file is not None:
         if "pdf_generated_path" not in st.session_state:
             st.session_state.pdf_generated_path = None
 
-        if st.button("📄 Generar Informe de Consultoría PDF con Alineación ISO 27001"):
-            with st.spinner("Compilando reporte forense avanzado y generando PDF..."):
-                st.session_state.pdf_generated_path = generar_pdf_consultoria(df_filtrado, file_name_original, file_hash)
-            st.success("¡Informe generado con éxito!")
+        if st.button("📄 Generar Informe Ejecutivo PDF Profesional (SOC ADVISORY DAV)"):
+            with st.spinner("Compilando reporte A4 corporativo y generando PDF..."):
+                fig_time_to_pass = fig_time if 'fig_time' in locals() else None
+                st.session_state.pdf_generated_path = generar_pdf_consultoria(df_filtrado, file_name_original, file_hash, fig_pie, fig_time_to_pass)
+            st.success("¡Informe generado con éxito bajo estándares A4!")
 
         if st.session_state.pdf_generated_path and os.path.exists(st.session_state.pdf_generated_path):
             with open(st.session_state.pdf_generated_path, "rb") as f:
                 st.download_button(
-                    label="⬇️ Descargar PDF Profesional para Cliente (ISO 27001)",
+                    label="⬇️ Descargar PDF Profesional para Cliente (SOC ADVISORY DAV)",
                     data=f,
-                    file_name="Informe_ISO27001_SOC.pdf",
+                    file_name="Informe_ISO27001_SOC_ADVISORY_DAV.pdf",
                     mime="application/pdf"
                 )
                 
     except Exception as e:
         st.error(f"Error al procesar el archivo Excel. Detalles: {e}")
 else:
-    st.info("👈 Por favor, carga tu archivo de logs (`.xlsx`) en la barra lateral para iniciar la consultoría de seguridad.")
+    st.info("👈 Por favor, carga tu archivo de logs (`.xlsx`) en la barra lateral para iniciar la consultoría de seguridad con SOC ADVISORY DAV.")
