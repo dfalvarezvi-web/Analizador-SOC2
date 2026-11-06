@@ -168,7 +168,7 @@ if uploaded_file is not None:
                     st.plotly_chart(fig_time, use_container_width=True)
 
         # ----------------------------------------------------
-        # NUEVO: VISTA INTERACTIVA DE LOG IDs POR CATEGORÍA
+        # VISTA INTERACTIVA DE LOG IDs POR CATEGORÍA
         # ----------------------------------------------------
         st.subheader("🔍 Trazabilidad de Casos por Log_ID (Drill-Down)")
         cat_seleccionada = st.selectbox("Selecciona un nivel de riesgo para identificar sus Log_IDs específicos:", ['Crítico', 'Alto', 'Medio', 'Bajo'])
@@ -215,7 +215,7 @@ if uploaded_file is not None:
         st.dataframe(df_vista_tabla[columnas_vista], use_container_width=True)
 
         # ----------------------------------------------------
-        # 7. GENERACIÓN DE INFORME PDF CORREGIDO
+        # 7. GENERACIÓN DE INFORME PDF CON GRÁFICO AL FINAL
         # ----------------------------------------------------
         st.header("📥 Exportación de Entregable Ejecutivo para Cliente")
         
@@ -245,6 +245,7 @@ if uploaded_file is not None:
             pdf = PDFReport()
             pdf.add_page()
             
+            # Título principal
             pdf.set_font("Arial", "B", 10.5)
             pdf.set_text_color(30, 27, 75)
             pdf.cell(0, 4.5, "INFORME DE AUDITORÍA FORENSE Y CUMPLIMIENTO SGSI", 0, 1, "L")
@@ -253,6 +254,7 @@ if uploaded_file is not None:
             pdf.cell(0, 3, f"Fecha de Emisión: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')} | Marco: ISO/IEC 27001:2022", 0, 1, "L")
             pdf.ln(1)
             
+            # Caja Metadatos
             pdf.set_fill_color(245, 243, 255)
             y_meta = pdf.get_y()
             pdf.rect(10, y_meta, 190, 12, 'F')
@@ -265,6 +267,7 @@ if uploaded_file is not None:
             pdf.cell(185, 3, f"Hash SHA-256: {hash_log}", 0, 1)
             pdf.set_y(y_meta + 14)
             
+            # 1. Resumen Ejecutivo
             pdf.set_font("Arial", "B", 8)
             pdf.set_text_color(30, 27, 75)
             pdf.cell(0, 4, "1. Resumen Ejecutivo y Detalle del Análisis Realizado", 0, 1)
@@ -272,36 +275,12 @@ if uploaded_file is not None:
             pdf.set_text_color(50, 50, 50)
             resumen_texto = f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre el archivo '{nombre_log}'. Se detectaron {criticos_cnt} eventos críticos y {altos_cnt} anomalías operativas. El análisis coteja la telemetría con controles normativos para mitigar desvíos del SGSI y riesgos de explotación."
             pdf.multi_cell(0, 3, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
-            pdf.ln(1.5)
+            pdf.ln(2)
             
-            pie_path = None
-            try:
-                pdf.set_font("Arial", "B", 8)
-                pdf.set_text_color(30, 27, 75)
-                pdf.cell(0, 4, "2. Análisis Estadístico y Distribución de Riesgos", 0, 1)
-                
-                fig, ax = plt.subplots(figsize=(3.0, 1.1))
-                counts = df_resumen['Criticidad_Consultoria'].value_counts()
-                chart_colors = ['#eab308', '#a855f7', '#7c3aed', '#6b21a8'][:len(counts)]
-                ax.pie(counts, labels=counts.index, autopct='%1.1f%%', colors=chart_colors, textprops={'fontsize': 5.5})
-                
-                pie_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
-                plt.savefig(pie_path, bbox_inches='tight', dpi=180)
-                plt.close(fig)
-                
-                img_y = pdf.get_y() + 0.5
-                pdf.image(pie_path, x=70, y=img_y, w=65)
-                pdf.set_y(img_y + 23)
-            except Exception:
-                pdf.ln(1.5)
-
-            if pie_path and os.path.exists(pie_path):
-                try: os.unlink(pie_path)
-                except: pass
-
+            # 2. Plan de Acción e ISO 27001
             pdf.set_font("Arial", "B", 8)
             pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 4, "3. Plan de Acción, Tiempos y Controles ISO/IEC 27001", 0, 1)
+            pdf.cell(0, 4, "2. Plan de Acción, Tiempos y Controles ISO/IEC 27001", 0, 1)
             pdf.ln(1)
             
             pdf.set_font("Arial", "B", 6.5)
@@ -322,11 +301,12 @@ if uploaded_file is not None:
             pdf.cell(38, 3.5, "Largo Plazo (30 - 90 días)", 1, 0)
             pdf.cell(87, 3.5, "Mínimo privilegio y automatización SIEM.", 1, 0)
             pdf.cell(65, 3.5, "Controles A.5.17 y A.9.12 (Accesos)", 1, 1)
-            pdf.ln(1.5)
+            pdf.ln(2)
             
+            # 3. Principales Hallazgos Forenses (Priorizando Críticos y Altos)
             pdf.set_font("Arial", "B", 8)
             pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 4, "4. Principales Hallazgos Forenses (Top Registros Priorizados)", 0, 1)
+            pdf.cell(0, 4, "3. Principales Hallazgos Forenses (Top Registros Priorizados)", 0, 1)
             pdf.set_font("Arial", "", 6)
             
             prioridad_map = {'Crítico': 0, 'Alto': 1, 'Medio': 2, 'Bajo': 3}
@@ -341,6 +321,32 @@ if uploaded_file is not None:
                 just = str(row.get('Justificacion_Tecnica', 'N/A'))
                 linea = f"[{log_id}] Host: {host} | Nivel: {crit} - {just}"
                 pdf.cell(0, 3, linea.encode('latin-1', 'replace').decode('latin-1'), 0, 1)
+            pdf.ln(2)
+
+            # 4. Análisis Estadístico y Gráfico (AL FINAL DEL DOCUMENTO)
+            pie_path = None
+            try:
+                pdf.set_font("Arial", "B", 8)
+                pdf.set_text_color(30, 27, 75)
+                pdf.cell(0, 4, "4. Análisis Estadístico y Distribución de Riesgos", 0, 1)
+                
+                fig, ax = plt.subplots(figsize=(3.2, 1.2))
+                counts = df_resumen['Criticidad_Consultoria'].value_counts()
+                chart_colors = ['#eab308', '#a855f7', '#7c3aed', '#6b21a8'][:len(counts)]
+                ax.pie(counts, labels=counts.index, autopct='%1.1f%%', colors=chart_colors, textprops={'fontsize': 6})
+                
+                pie_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
+                plt.savefig(pie_path, bbox_inches='tight', dpi=180)
+                plt.close(fig)
+                
+                img_y = pdf.get_y() + 1
+                pdf.image(pie_path, x=68, y=img_y, w=75)
+            except Exception:
+                pass
+
+            if pie_path and os.path.exists(pie_path):
+                try: os.unlink(pie_path)
+                except: pass
                 
             tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
             pdf.output(tmp_file.name)
