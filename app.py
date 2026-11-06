@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 st.title("🛡️ Centro de Operaciones de Seguridad (SOC) - Análisis de Incidentes")
-st.markdown("Plataforma interactiva adaptada a tus campos de logs para la ingesta, análisis, clasificación de riesgos y reportes.")
+st.markdown("Plataforma interactiva adaptada automáticamente a tus registros de logs.")
 
 # ----------------------------------------------------
 # 1. CARGA DE ARCHIVOS (.xlsx)
@@ -23,7 +23,11 @@ uploaded_file = st.sidebar.file_uploader("Subir archivo de logs (Excel .xlsx)", 
 if uploaded_file is not None:
     try:
         df = pd.read_excel(uploaded_file)
-        st.success("¡Archivo de logs cargado exitosamente!")
+        
+        # Limpiar espacios en blanco en los nombres de las columnas del Excel automáticamente
+        df.columns = df.columns.astype(str).str.strip()
+        
+        st.success("¡Archivo de logs cargado y normalizado exitosamente!")
         
         with st.expander("🔍 Vista previa de los datos brutos"):
             st.dataframe(df, use_container_width=True)
@@ -33,36 +37,41 @@ if uploaded_file is not None:
         # ----------------------------------------------------
         st.header("🔎 2. Análisis de Seguridad y Correlación de Eventos")
         
+        # Función auxiliar para buscar columnas de forma flexible (ignorando mayúsculas/minúsculas y espacios)
+        def obtener_valor(row, posibles_nombres):
+            for col in df.columns:
+                if col.lower().replace(" ", "").replace("_", "") in [p.lower().replace(" ", "").replace("_", "") for p in posibles_nombres]:
+                    val = row.get(col)
+                    if pd.notna(val):
+                        return str(val)
+            return ""
+
         def clasificar_y_justificar(row):
-            # Usando tus columnas reales exactas
-            severity = str(row.get('Severity', '')).lower()
-            desc = str(row.get('DescriptionProcess', '')).lower()
-            result = str(row.get('Result', '')).lower()
-            cmd = str(row.get('CommandLine', '')).lower()
+            severity = obtener_valor(row, ['Severity', 'Severidad', 'Nivel'])
+            desc = obtener_valor(row, ['DescriptionProcess', 'Description', 'Proceso', 'Desc'])
+            result = obtener_valor(row, ['Result', 'Resultado', 'Estado'])
             
-            if 'critical' in severity or 'critico' in severity or 'rce' in desc or 'malware' in desc:
-                return 'Crítico', 'Severidad alta detectada o presencia de código malicioso / ejecución en CommandLine.'
-            elif 'high' in severity or 'alto' in severity or 'fail' in result or 'denied' in result:
-                return 'Alto', 'Fallo de autenticación, acceso denegado o evento marcado con severidad alta.'
-            elif 'medium' in severity or 'medio' in severity or 'warning' in severity:
-                return 'Medio', 'Advertencia o comportamiento anómalo detectado en el proceso.'
+            sev_l = severity.lower()
+            desc_l = desc.lower()
+            res_l = result.lower()
+            
+            if 'critical' in sev_l or 'critico' in sev_l or 'rce' in desc_l or 'malware' in desc_l:
+                return 'Crítico', 'Severidad alta detectada o presencia de código malicioso en el proceso.'
+            elif 'high' in sev_l or 'alto' in sev_l or 'fail' in res_l or 'denied' in res_l:
+                return 'Alto', 'Fallo de autenticación, acceso denegado o evento de severidad alta.'
+            elif 'medium' in sev_l or 'medio' in sev_l or 'warning' in sev_l:
+                return 'Medio', 'Advertencia o comportamiento anómalo detectado en los registros.'
             else:
                 return 'Bajo', 'Evento rutinario sin anomalías críticas aparentes.'
 
-        # Aplicar el análisis al DataFrame
+        # Aplicar el análisis
         df_analisis = df.copy()
         resultados = df_analisis.apply(clasificar_y_justificar, axis=1)
         df_analisis['Criticidad_Calculada'] = [r[0] for r in resultados]
         df_analisis['Justificación_Tecnica'] = [r[1] for r in resultados]
 
-        # Mostrar tabla filtrada con tus columnas reales
-        columnas_mostrar = ['Timestamp', 'HostnameEvent', 'IDUserSource', 'IPDestinationLog', 'Severity', 'Criticidad_Calculada', 'Justificación_Tecnica']
-        columnas_existentes = [col for col in columnas_mostrar if col in df_analisis.columns]
-        
-        if columnas_existentes:
-            st.dataframe(df_analisis[columnas_existentes], use_container_width=True)
-        else:
-            st.dataframe(df_analisis, use_container_width=True)
+        # Mostrar tabla resumida de análisis
+        st.dataframe(df_analisis, use_container_width=True)
 
         # ----------------------------------------------------
         # 3. DASHBOARD INTERACTIVO
@@ -103,15 +112,15 @@ if uploaded_file is not None:
         st.header("📝 5. Informe Técnico Consolidado")
         
         informe_texto = f"""
-        INFORME TÉCNICO DE CIBERSEGURIDAD - SOC
-        
-        - Fecha de generación: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
-        - Total de logs analizados: {total_eventos}
-        - Resumen Ejecutivo: Se procesaron los registros recopilados, identificando {criticos} eventos críticos y {altos} eventos de alto riesgo que requieren validación urgente por parte del equipo técnico.
-        - Recomendaciones:
-          1. Revisar los comandos ejecutados (CommandLine) en los equipos marcados como críticos.
-          2. Validar las direcciones IP de destino (IPDestinationLog) asociadas a tráficos sospechosos.
-          3. Aplicar medidas de contención en cuentas de usuario comprometidas (IDUserSource).
+INFORME TÉCNICO DE CIBERSEGURIDAD - SOC
+
+- Fecha de generación: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+- Total de logs analizados: {total_eventos}
+- Resumen Ejecutivo: Se procesaron los registros recopilados, identificando {criticos} eventos críticos y {altos} eventos de alto riesgo que requieren validación urgente.
+- Recomendaciones:
+  1. Revisar los comandos ejecutados (CommandLine) en los equipos marcados como críticos.
+  2. Validar las direcciones IP de destino asociadas a tráficos sospechosos.
+  3. Aplicar medidas de contención en cuentas de usuario comprometidas.
         """
         st.markdown(informe_texto)
 
@@ -123,37 +132,43 @@ if uploaded_file is not None:
         def generar_pdf(df_resumen, texto_inf):
             pdf = FPDF()
             pdf.add_page()
-            pdf.set_font("Arial", "B", 16)
+            pdf.set_font("Arial", "B", 15)
             pdf.cell(0, 10, "Informe Tecnico de Ciberseguridad - SOC", 0, 1, "C")
-            pdf.ln(10)
-            
-            pdf.set_font("Arial", "", 10)
-            for linea in texto_inf.split("\n"):
-                pdf.multi_cell(0, 6, linea.encode('latin-1', 'replace').decode('latin-1'))
             pdf.ln(5)
             
-            pdf.set_font("Arial", "B", 11)
-            pdf.cell(0, 10, "Principales Hallazgos:", 0, 1, "L")
             pdf.set_font("Arial", "", 9)
+            for linea in texto_inf.split("\n"):
+                pdf.multi_cell(0, 5, linea.encode('latin-1', 'replace').decode('latin-1'))
+            pdf.ln(5)
             
-            for index, row in df_resumen.head(15).iterrows():
-                linea_tabla = f"[{row['Criticidad_Calculada']}] Host: {row.get('HostnameEvent', 'N/A')} - User: {row.get('IDUserSource', 'N/A')} - IP Dest: {row.get('IPDestinationLog', 'N/A')}"
-                pdf.multi_cell(0, 5, linea_tabla.encode('latin-1', 'replace').decode('latin-1'))
+            pdf.set_font("Arial", "B", 10)
+            pdf.cell(0, 8, "Principales Hallazgos y Muestras:", 0, 1, "L")
+            pdf.set_font("Arial", "", 8)
+            
+            for index, row in df_resumen.head(20).iterrows():
+                crit = row.get('Criticidad_Calculada', 'N/A')
+                justif = row.get('Justificación_Tecnica', 'N/A')
+                linea_tabla = f"[{crit}] {justif}"
+                pdf.multi_cell(0, 4, linea_tabla.encode('latin-1', 'replace').decode('latin-1'))
                 
             tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
             pdf.output(tmp_file.name)
             return tmp_file.name
 
         if st.button("📄 Generar y Descargar Informe PDF"):
-            pdf_path = generar_pdf(df_analisis, informe_texto)
-            with open(pdf_path, "rb") as f:
-                st.download_button(
-                    label="⬇️ Descargar PDF Oficial",
-                    data=f,
-                    file_name="Informe_SOC_Logs.pdf",
-                    mime="application/pdf"
-                )
+            try:
+                pdf_path = generar_pdf(df_analisis, informe_texto)
+                with open(pdf_path, "rb") as f:
+                    st.download_button(
+                        label="⬇️ Descargar PDF Oficial",
+                        data=f,
+                        file_name="Informe_SOC_Logs.pdf",
+                        mime="application/pdf"
+                    )
+            except Exception as pdf_err:
+                st.error(f"Error generando el PDF: {pdf_err}")
+                
     except Exception as e:
-        st.error(f"Error al procesar el archivo Excel. Asegúrate de que las columnas coincidan. Detalles: {e}")
+        st.error(f"Error al procesar el archivo Excel. Por favor verifica que sea un archivo .xlsx válido. Detalles: {e}")
 else:
     st.info("👈 Por favor, sube tu archivo Excel de logs desde la barra lateral para iniciar el análisis.")
