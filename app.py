@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import matplotlib.pyplot as plt
 from fpdf import FPDF
 import tempfile
 import os
 import hashlib
 
 # ----------------------------------------------------
-# CONFIGURACIÓN INICIAL Y ESTILOS VISUALES CORPORATIVOS
+# CONFIGURACIÓN INICIAL Y ESTILOS VISUALES (MORADOS Y AMARILLO)
 # ----------------------------------------------------
 st.set_page_config(
     page_title="SOC ADVISORY DAV - Auditoría y Ciberseguridad",
@@ -15,7 +16,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# Inyección de estilos CSS para dar apariencia de SaaS de Ciberseguridad de Alta Gama
 st.markdown("""
     <style>
     .main {
@@ -23,23 +23,15 @@ st.markdown("""
         color: #f8fafc;
     }
     .stMetric {
-        background-color: #1e293b;
+        background-color: #1e1b4b;
         padding: 15px;
         border-radius: 10px;
-        border: 1px solid #334155;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-    }
-    .custom-card {
-        background-color: #1e293b;
-        padding: 20px;
-        border-radius: 10px;
-        border: 1px solid #334155;
-        margin-bottom: 20px;
+        border: 1px solid #7c3aed;
+        box-shadow: 0 4px 6px -1px rgba(124, 58, 237, 0.2);
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Título Principal con la nueva identidad
 st.title("🛡️ SOC ADVISORY DAV | Centro de Operaciones de Seguridad")
 st.markdown("### Plataforma Avanzada de Análisis Forense, Correlación SIEM y Gobernanza SGSI")
 
@@ -65,8 +57,7 @@ if uploaded_file is not None:
         
         with st.expander("🔍 Ver Detalle del Artefacto y Cadena de Custodia (Hash SHA-256)"):
             st.text(f"• Nombre del archivo analizado: {file_name_original}")
-            I_hash_msg = f"• Hash SHA-256 (Garantía de Integridad): {file_hash}"
-            st.text(I_hash_msg)
+            st.text(f"• Hash SHA-256 (Garantía de Integridad): {file_hash}")
             st.dataframe(df.head(10), use_container_width=True)
             
         # ----------------------------------------------------
@@ -115,30 +106,19 @@ if uploaded_file is not None:
         ]
 
         # ----------------------------------------------------
-        # 4. EXPLICACIÓN DETALLADA DEL ANÁLISIS REALIZADO (NUEVA SECCIÓN)
+        # 4. EXPLICACIÓN DETALLADA DEL ANÁLISIS REALIZADO
         # ----------------------------------------------------
         st.markdown("---")
         st.subheader("📑 Memoria Técnica y Detalle del Análisis Realizado")
         st.markdown(
             "El presente análisis evalúa la telemetría y los registros de eventos de seguridad (SIEM) ingestados mediante "
             "un motor de correlación heurística basado en matrices de riesgo corporativas y marcos de referencia internacionales "
-            "como **MITRE ATT&CK** y **ISO/IEC 27001:2022**. El proceso contempla:"
+            "como **MITRE ATT&CK** y **ISO/IEC 27001:2022**."
         )
-        col_ex1, col_ex2 = st.columns(2)
-        with col_ex1:
-            st.markdown(
-                "* **Normalización y Custodia:** Estandarización de campos temporales (`Timestamp`), hosts y comandos de consola, "
-                "respaldados mediante un hash criptográfico SHA-256 para garantizar la inalterabilidad de la evidencia forense."
-            )
-        with col_ex2:
-            st.markdown(
-                "* **Evaluación de Criticidad:** Ponderación dinámica de severidades, patrones de comandos anómalos (ej. uso no autorizado de "
-                "PowerShell o codificación Base64) y fallos perimetrales para clasificar el impacto real sobre los activos."
-            )
         st.markdown("---")
 
         # ----------------------------------------------------
-        # 5. DASHBOARD EJECUTIVO Y ALERTAS DINÁMICAS
+        # 5. DASHBOARD EJECUTIVO Y ALERTAS DINÁMICAS (Paleta Morados y Amarillo)
         # ----------------------------------------------------
         st.header("📊 Dashboard Ejecutivo de Incidentes y Frecuencia")
         
@@ -148,7 +128,7 @@ if uploaded_file is not None:
         hosts_comprometidos = df_filtrado[df_filtrado['Criticidad_Consultoria'].isin(['Crítico', 'Alto'])]['Hostname'].nunique()
         
         if criticos_cnt > 0:
-            st.error(f"🚨 **ALTA AMENAZA DETECTADA:** Se han identificado {criticos_cnt} eventos críticos que afectan la conformidad del SGSI. Se requiere contención inmediata.")
+            st.error(f"🚨 **ALTA AMENAZA DETECTADA:** Se han identificado {criticos_cnt} eventos críticos. Se requiere contención inmediata.")
         elif altos_cnt > 0:
             st.warning(f"⚠️ **ADVERTENCIA DE SEGURIDAD:** Se registran {altos_cnt} anomalías de nivel alto.")
         else:
@@ -160,6 +140,14 @@ if uploaded_file is not None:
         col3.metric("Incidentes Altos", altos_cnt)
         col4.metric("Hosts Afectados", hosts_comprometidos)
         
+        # Paleta de colores: Morados y Amarillo
+        color_palette = {
+            'Crítico': '#eab308',  # Amarillo brillante
+            'Alto': '#facc15',     # Amarillo claro
+            'Medio': '#a855f7',    # Morado claro
+            'Bajo': '#6b21a8'      # Morado oscuro
+        }
+
         col_g1, col_g2 = st.columns(2)
         with col_g1:
             fig_pie = px.pie(
@@ -167,7 +155,7 @@ if uploaded_file is not None:
                 names='Criticidad_Consultoria', 
                 title='Distribución Porcentual de Riesgo',
                 color='Criticidad_Consultoria',
-                color_discrete_map={'Crítico':'#ff4b4b', 'Alto':'#ffa15a', 'Medio':'#ffcc00', 'Bajo':'#00cc96'}
+                color_discrete_map=color_palette
             )
             fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
             st.plotly_chart(fig_pie, use_container_width=True)
@@ -184,20 +172,27 @@ if uploaded_file is not None:
                         y='Frecuencia', 
                         color='Criticidad_Consultoria',
                         title='Línea de Tiempo y Frecuencia de Incidentes',
-                        color_discrete_map={'Crítico':'#ff4b4b', 'Alto':'#ffa15a', 'Medio':'#ffcc00', 'Bajo':'#00cc96'}
+                        color_discrete_map=color_palette
                     )
                     fig_time.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
                     st.plotly_chart(fig_time, use_container_width=True)
 
         # ----------------------------------------------------
-        # 6. MATRIZ DETALLADA Y PLAN DE CONSULTORÍA
+        # 6. MATRIZ DETALLADA Y FILTRO DE JUSTIFICACIONES TÉCNICAS
         # ----------------------------------------------------
         st.header("📋 Detalle de Registros y Hallazgos Forenses")
-        columnas_vista = [col for col in ['Log_ID', 'Timestamp', 'Hostname', 'User', 'Source_IP', 'Event_Description', 'Severity', 'Criticidad_Consultoria', 'Justificacion_Tecnica'] if col in df_filtrado.columns]
-        st.dataframe(df_filtrado[columnas_vista], use_container_width=True)
+        
+        # NUEVO: Filtro interactivo para justificaciones técnicas
+        busqueda_justificacion = st.text_input("🔍 Filtrar Hallazgos por Texto en Justificación Técnica:", "")
+        df_vista_tabla = df_filtrado.copy()
+        if busqueda_justificacion:
+            df_vista_tabla = df_vista_tabla[df_vista_tabla['Justificacion_Tecnica'].str.contains(busqueda_justificacion, case=False, na=False)]
+
+        columnas_vista = [col for col in ['Log_ID', 'Timestamp', 'Hostname', 'User', 'Source_IP', 'Event_Description', 'Severity', 'Criticidad_Consultoria', 'Justificacion_Tecnica'] if col in df_vista_tabla.columns]
+        st.dataframe(df_vista_tabla[columnas_vista], use_container_width=True)
 
         # ----------------------------------------------------
-        # 7. GENERACIÓN DE INFORME PROFESIONAL EN PDF (CON FORMATO A4, GRÁFICOS Y ESTILO CORPORATIVO DAV)
+        # 7. GENERACIÓN DE INFORME PDF CON MATPLOTLIB (GRÁFICOS GARANTIZADOS)
         # ----------------------------------------------------
         st.header("📥 Exportación de Entregable Ejecutivo para Cliente")
         
@@ -207,10 +202,11 @@ if uploaded_file is not None:
                 self.set_auto_page_break(auto=True, margin=15)
                 
             def header(self):
-                self.set_fill_color(24, 30, 54)
+                # Banda superior en tono morado oscuro institucional
+                self.set_fill_color(30, 27, 75)
                 self.rect(0, 0, 210, 18, 'F')
                 self.set_font('Arial', 'B', 9)
-                self.set_text_color(255, 255, 255)
+                self.set_text_color(250, 204, 21) # Amarillo claro
                 self.set_xy(10, 5)
                 self.cell(100, 8, 'SOC ADVISORY DAV | INFORME TÉCNICO EJECUTIVO', 0, 0, 'L')
                 self.set_xy(110, 5)
@@ -223,12 +219,12 @@ if uploaded_file is not None:
                 self.set_text_color(128, 128, 128)
                 self.cell(0, 8, f'Página {self.page_no()} | SOC ADVISORY DAV - Documento Confidencial', 0, 0, 'C')
 
-        def generar_pdf_consultoria(df_resumen, nombre_log, hash_log, fig_pie_obj, fig_time_obj):
+        def generar_pdf_consultoria(df_resumen, nombre_log, hash_log):
             pdf = PDFReport()
             pdf.add_page()
             
             pdf.set_font("Arial", "B", 13)
-            pdf.set_text_color(24, 30, 54)
+            pdf.set_text_color(30, 27, 75)
             pdf.cell(0, 6, "INFORME DE AUDITORÍA FORENSE Y CUMPLIMIENTO SGSI", 0, 1, "L")
             pdf.set_font("Arial", "", 8.5)
             pdf.set_text_color(100, 100, 100)
@@ -236,18 +232,18 @@ if uploaded_file is not None:
             pdf.ln(3)
             
             # Caja Metadatos
-            pdf.set_fill_color(240, 243, 246)
+            pdf.set_fill_color(245, 243, 255)
             pdf.rect(10, pdf.get_y(), 190, 18, 'F')
             pdf.set_xy(12, pdf.get_y() + 2)
             pdf.set_font("Arial", "B", 8)
-            pdf.set_text_color(24, 30, 54)
+            pdf.set_text_color(30, 27, 75)
             pdf.cell(90, 4, f"Artefacto Analizado: {nombre_log}", 0, 0)
             pdf.cell(95, 4, f"Total Registros Analizados: {len(df_resumen)}", 0, 1)
             pdf.set_x(12)
             pdf.cell(185, 4, f"Hash SHA-256 (Integridad Forense): {hash_log}", 0, 1)
             pdf.ln(6)
             
-            # Resumen Ejecutivo y Detalle del Análisis
+            # Resumen Ejecutivo
             pdf.set_font("Arial", "B", 9.5)
             pdf.cell(0, 5, "1. Resumen Ejecutivo y Detalle del Análisis Realizado", 0, 1)
             pdf.set_font("Arial", "", 8)
@@ -260,42 +256,43 @@ if uploaded_file is not None:
             pdf.multi_cell(0, 4, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
             pdf.ln(4)
             
-            # Inserción de Gráficos Estadísticos
+            # GENERACIÓN DE GRÁFICOS CON MATPLOTLIB (INCRUSTACIÓN DIRECTA EN PDF)
             pie_path = None
-            time_path = None
             try:
                 pdf.set_font("Arial", "B", 9.5)
-                pdf.set_text_color(24, 30, 54)
+                pdf.set_text_color(30, 27, 75)
                 pdf.cell(0, 5, "2. Análisis Estadístico y Distribución de Riesgos", 0, 1)
                 pdf.ln(2)
                 
+                fig, ax = plt.subplots(figsize=(5, 3))
+                counts = df_resumen['Criticidad_Consultoria'].value_counts()
+                chart_colors = ['#eab308', '#a855f7', '#7c3aed', '#6b21a8'][:len(counts)]
+                ax.pie(counts, labels=counts.index, autopct='%1.1f%%', colors=chart_colors, textprops={'fontsize': 8})
+                ax.set_title('Distribución de Riesgos (SOC ADVISORY DAV)', fontsize=9, color='#1e1b4b', fontweight='bold')
+                
                 pie_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
-                fig_pie_obj.write_image(pie_path, width=400, height=250, scale=2)
-                pdf.image(pie_path, x=15, y=pdf.get_y(), w=85)
+                plt.savefig(pie_path, bbox_inches='tight', dpi=150)
+                plt.close(fig)
                 
-                if fig_time_obj is not None:
-                    time_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
-                    fig_time_obj.write_image(time_path, width=450, height=250, scale=2)
-                    pdf.image(time_path, x=110, y=pdf.get_y(), w=90)
-                
-                pdf.ln(45)
-            except Exception:
-                pdf.set_font("Arial", "I", 7.5)
-                pdf.cell(0, 4, "(Gráficos estadísticos procesados interactivamente en plataforma web)", 0, 1)
-                pdf.ln(3)
+                # Insertar gráfico centrado en el PDF A4
+                pdf.image(pie_path, x=55, y=pdf.get_y(), w=100)
+                pdf.ln(60)
+            except Exception as chart_err:
+                pdf.set_font("Error generando gráficos: " + str(chart_err), "", 7)
+                pdf.ln(4)
 
-            for p in [pie_path, time_path]:
-                if p and os.path.exists(p):
-                    try: os.unlink(p)
-                    except: pass
+            if pie_path and os.path.exists(pie_path):
+                try: os.unlink(pie_path)
+                except: pass
 
             # Plan de Acción e ISO 27001
             pdf.set_font("Arial", "B", 9.5)
-            pdf.set_text_color(24, 30, 54)
+            pdf.set_text_color(30, 27, 75)
             pdf.cell(0, 5, "3. Plan de Acción, Tiempos y Controles ISO/IEC 27001", 0, 1)
             pdf.ln(1)
             
             pdf.set_font("Arial", "B", 8)
+            pdf.set_fill_color(230, 225, 250)
             pdf.cell(45, 5, "Plazo / Horizonte", 1, 0, "C", fill=True)
             pdf.cell(75, 5, "Acciones de Mitigación / Medida", 1, 0, "C", fill=True)
             pdf.cell(70, 5, "Control ISO 27001:2022", 1, 1, "C", fill=True)
@@ -335,10 +332,9 @@ if uploaded_file is not None:
             st.session_state.pdf_generated_path = None
 
         if st.button("📄 Generar Informe Ejecutivo PDF Profesional (SOC ADVISORY DAV)"):
-            with st.spinner("Compilando reporte A4 corporativo y generando PDF..."):
-                fig_time_to_pass = fig_time if 'fig_time' in locals() else None
-                st.session_state.pdf_generated_path = generar_pdf_consultoria(df_filtrado, file_name_original, file_hash, fig_pie, fig_time_to_pass)
-            st.success("¡Informe generado con éxito bajo estándares A4!")
+            with st.spinner("Compilando reporte A4 corporativo, renderizando gráficos y generando PDF..."):
+                st.session_state.pdf_generated_path = generar_pdf_consultoria(df_filtrado, file_name_original, file_hash)
+            st.success("¡Informe generado con éxito bajo estándares A4 y gráficos incluidos!")
 
         if st.session_state.pdf_generated_path and os.path.exists(st.session_state.pdf_generated_path):
             with open(st.session_state.pdf_generated_path, "rb") as f:
