@@ -27,10 +27,9 @@ if uploaded_file is not None:
         # Normalizar nombres de columnas (quitar espacios)
         df.columns = df.columns.astype(str).str.strip()
         
-        # Convertir Timestamp a formato fecha/hora
+        # Convertir Timestamp a formato fecha/hora de forma segura
         if 'Timestamp' in df.columns:
-            df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-            df['Hour'] = df['Timestamp'].dt.floor('H')
+            df['Timestamp'] = pd.to_datetime(df['Timestamp'], errors='coerce')
         
         st.sidebar.success("¡Logs cargados y normalizados con éxito!")
         
@@ -118,16 +117,20 @@ if uploaded_file is not None:
             
         with col_g2:
             if 'Timestamp' in df_filtrado.columns and not df_filtrado.empty:
-                df_freq = df_filtrado.groupby([df_filtrado['Timestamp'].dt.floor('T'), 'Criticidad_Consultoria']).size().reset_index(name='Frecuencia')
-                fig_time = px.line(
-                    df_freq, 
-                    x='Timestamp', 
-                    y='Frecuencia', 
-                    color='Criticidad_Consultoria',
-                    title='Línea de Tiempo y Frecuencia de Incidentes',
-                    color_discrete_map={'Crítico':'#ff4b4b', 'Alto':'#ffa15a', 'Medio':'#ffcc00', 'Bajo':'#00cc96'}
-                )
-                st.plotly_chart(fig_time, use_container_width=True)
+                # Agrupación temporal segura usando 'h' minúscula
+                df_freq = df_filtrado.dropna(subset=['Timestamp']).copy()
+                if not df_freq.empty:
+                    df_freq['Time_Group'] = df_freq['Timestamp'].dt.floor('h')
+                    df_freq_grouped = df_freq.groupby(['Time_Group', 'Criticidad_Consultoria']).size().reset_index(name='Frecuencia')
+                    fig_time = px.line(
+                        df_freq_grouped, 
+                        x='Time_Group', 
+                        y='Frecuencia', 
+                        color='Criticidad_Consultoria',
+                        title='Línea de Tiempo y Frecuencia de Incidentes',
+                        color_discrete_map={'Crítico':'#ff4b4b', 'Alto':'#ffa15a', 'Medio':'#ffcc00', 'Bajo':'#00cc96'}
+                    )
+                    st.plotly_chart(fig_time, use_container_width=True)
 
         # ----------------------------------------------------
         # 5. MATRIZ DETALLADA Y PLAN DE CONSULTORÍA
@@ -145,20 +148,17 @@ if uploaded_file is not None:
             pdf = FPDF()
             pdf.add_page()
             
-            # Encabezado del reporte de consultoría
             pdf.set_font("Arial", "B", 15)
             pdf.cell(0, 10, "INFORME EJECUTIVO DE CONSULTORIA SOC", 0, 1, "C")
             pdf.set_font("Arial", "I", 9)
             pdf.cell(0, 5, "Analisis de Seguridad, Correlacion de Logs y Plan de Accion", 0, 1, "C")
             pdf.ln(5)
             
-            # Metadatos
             pdf.set_font("Arial", "B", 9)
             pdf.cell(0, 6, f"Fecha de emision: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')}", 0, 1)
             pdf.cell(0, 6, f"Total de registros analizados: {len(df_resumen)} | Criticos: {criticos_cnt} | Altos: {altos_cnt}", 0, 1)
             pdf.ln(4)
             
-            # Sección 1: Resumen Ejecutivo
             pdf.set_font("Arial", "B", 10)
             pdf.cell(0, 6, "1. Resumen Ejecutivo y Evaluacion de Riesgo", 0, 1)
             pdf.set_font("Arial", "", 8)
@@ -170,7 +170,6 @@ if uploaded_file is not None:
             pdf.multi_cell(0, 4, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
             pdf.ln(4)
             
-            # Sección 2: Plan de Acción y Recomendaciones
             pdf.set_font("Arial", "B", 10)
             pdf.cell(0, 6, "2. Plan de Accion y Mitigacion Recomendado", 0, 1)
             pdf.set_font("Arial", "", 8)
@@ -183,16 +182,15 @@ if uploaded_file is not None:
             pdf.multi_cell(0, 4, acciones_texto.encode('latin-1', 'replace').decode('latin-1'))
             pdf.ln(4)
             
-            # Sección 3: Detalle de Hallazgos
             pdf.set_font("Arial", "B", 10)
             pdf.cell(0, 6, "3. Principales Hallazgos Forenses", 0, 1)
             pdf.set_font("Arial", "", 7)
             
             for index, row in df_resumen.head(20).iterrows():
-                log_id = row.get('Log_ID', 'N/A')
-                host = row.get('Hostname', 'N/A')
-                crit = row.get('Criticidad_Consultoria', 'N/A')
-                just = row.get('Justificacion_Tecnica', 'N/A')
+                log_id = str(row.get('Log_ID', 'N/A'))
+                host = str(row.get('Hostname', 'N/A'))
+                crit = str(row.get('Criticidad_Consultoria', 'N/A'))
+                just = str(row.get('Justificacion_Tecnica', 'N/A'))
                 linea = f"[{log_id}] Host: {host} | Nivel: {crit} - {just}"
                 pdf.cell(0, 4, linea.encode('latin-1', 'replace').decode('latin-1'), 0, 1)
                 
@@ -214,6 +212,6 @@ if uploaded_file is not None:
                 st.error(f"Error generando el PDF de consultoría: {pdf_err}")
                 
     except Exception as e:
-        st.error(f"Error al procesar el archivo Excel. Verifica que las columnas correspondan al formato SIEM. Detalles: {e}")
+        st.error(f"Error al procesar el archivo Excel. Detalles: {e}")
 else:
     st.info("👈 Por favor, carga tu archivo de logs (`.xlsx`) en la barra lateral para iniciar la consultoría de seguridad.")
