@@ -22,7 +22,6 @@ st.markdown("""
         background-color: #0f172a;
         color: #f8fafc;
     }
-    /* Estilo de tarjetas de métricas con alto contraste */
     div[data-testid="stMetric"] {
         background-color: #1e1b4b !important;
         padding: 15px !important;
@@ -31,11 +30,11 @@ st.markdown("""
         box-shadow: 0 4px 6px -1px rgba(124, 58, 237, 0.3);
     }
     div[data-testid="stMetric"] label {
-        color: #facc15 !important; /* Amarillo brillante para etiquetas */
+        color: #facc15 !important;
         font-weight: 600 !important;
     }
     div[data-testid="stMetric"] div[data-testid="stMetricValue"] {
-        color: #ffffff !important; /* Blanco puro para los números */
+        color: #ffffff !important;
         font-weight: 700 !important;
     }
     </style>
@@ -150,10 +149,10 @@ if uploaded_file is not None:
         col4.metric("Hosts Afectados", hosts_comprometidos)
         
         color_palette = {
-            'Crítico': '#eab308',  # Amarillo brillante
-            'Alto': '#facc15',     # Amarillo claro
-            'Medio': '#a855f7',    # Morado claro
-            'Bajo': '#6b21a8'      # Morado oscuro
+            'Crítico': '#eab308',
+            'Alto': '#facc15',
+            'Medio': '#a855f7',
+            'Bajo': '#6b21a8'
         }
 
         col_g1, col_g2 = st.columns(2)
@@ -186,36 +185,36 @@ if uploaded_file is not None:
                     st.plotly_chart(fig_time, use_container_width=True)
 
         # ----------------------------------------------------
-        # SECCIÓN EXPANDIDA: GUÍA MATRIZ DE RIESGO Y HALLAZGOS FORENSES
+        # GUÍA MATRIZ DE RIESGO Y HALLAZGOS FORENSES
         # ----------------------------------------------------
         with st.expander("ℹ️ Guía Ejecutiva: Interpretación de Niveles de Riesgo, Hallazgos Forenses y Medidas ISO 27001"):
             st.markdown(
                 """
                 ### 🚨 1. Riesgo Crítico (Respuesta Inmediata: 0 - 24 h)
                 * **Implica:** Evidencia clara de compromiso de activos, ejecución remota de código (RCE) o actividad maliciosa activa.
-                * **Relación Forense:** Coincidencias con patrones como `PowerShell` codificado en Base64, uso de `Invoke-WebRequest`, ejecuciones desatendidas vía `cmd.exe /c` o alertas críticas del SIEM.
-                * **Medidas ISO 27001:** **A.5.24 (Gestión de Incidentes)** y **A.8.7 (Protección contra Malware)** — Aislamiento preventivo del host, revocación inmediata de tokens/credenciales y auditoría de memoria.
+                * **Relación Forense:** Coincidencias con patrones como `PowerShell` codificado en Base64, uso de `Invoke-WebRequest` o alertas críticas del SIEM.
+                * **Medidas ISO 27001:** **A.5.24 (Gestión de Incidentes)** y **A.8.7 (Protección contra Malware)** — Aislamiento preventivo del host y revocación de credenciales.
 
                 ---
 
                 ### ⚠️ 2. Riesgo Alto (Respuesta a Corto Plazo: 1 - 7 días)
-                * **Implica:** Anomalías operativas significativas que sugieren intentos de ataque, degradación del control de acceso o vectores de entrada fallidos.
-                * **Relación Forense:** Bloqueos por múltiples intentos fallidos de autenticación, eventos de acceso denegado (`Result: Denied / Fail`) o comportamientos inusuales en perimetrales.
-                * **Medidas ISO 27001:** **A.5.17 (Información de Autenticación)** y **A.8.16 (Monitoreo)** — Bloqueo preventivo de IPs sospechosas, forzado de MFA y revisión de listas de control de acceso (ACLs).
+                * **Implica:** Anomalías operativas significativas que sugieren intentos de ataque o vectores de entrada fallidos.
+                * **Relación Forense:** Bloqueos por múltiples intentos fallidos de autenticación o eventos de acceso denegado (`Result: Denied / Fail`).
+                * **Medidas ISO 27001:** **A.5.17 (Autenticación)** y **A.8.16 (Monitoreo)** — Bloqueo preventivo de IPs sospechosas y forzado de MFA.
 
                 ---
 
-                ### 🟣 3. Riesgo Medio (Respuesta a Corto/Mediano Plazo: 7 - 30 días)
+                ### 🟣 3. Riesgo Medio (Respuesta a Mediano Plazo: 7 - 30 días)
                 * **Implica:** Operaciones administrativas o de usuario relevantes que requieren auditoría y trazabilidad periódica.
-                * **Relación Forense:** Creación de procesos de sistema estándar, inician de sesión en horarios fuera de jornada laboral o elevación temporal de privilegios.
-                * **Medidas ISO 27001:** **A.8.15 (Registro de Eventos)** — Trazabilidad de identificadores de usuario (`User`) e IP de origen para cumplimiento normativo.
+                * **Relación Forense:** Creación de procesos de sistema estándar o inicios de sesión fuera de jornada laboral.
+                * **Medidas ISO 27001:** **A.8.15 (Registro de Eventos)** — Trazabilidad de identificadores de usuario (`User`) e IP de origen.
 
                 ---
 
                 ### 🟢 4. Riesgo Bajo (Monitoreo Continuo)
                 * **Implica:** Operación habitual y rutinaria dentro de la línea base esperada de la infraestructura.
                 * **Relación Forense:** Trazas estándar de servicios en ejecución, inicios de sesión autorizados y comandos operativos sin anomalías.
-                * **Medidas ISO 27001:** **A.8.16 (Actividad de Monitoreo)** — Alimentación del repositorio de logs para validación de patrones de comportamiento sin necesidad de intervención manual.
+                * **Medidas ISO 27001:** **A.8.16 (Actividad de Monitoreo)** — Alimentación del repositorio de logs para validación de patrones de comportamiento.
                 """
             )
 
@@ -262,7 +261,6 @@ if uploaded_file is not None:
             pdf = PDFReport()
             pdf.add_page()
             
-            # Título y Fecha
             pdf.set_font("Arial", "B", 12)
             pdf.set_text_color(30, 27, 75)
             pdf.cell(0, 6, "INFORME DE AUDITORÍA FORENSE Y CUMPLIMIENTO SGSI", 0, 1, "L")
@@ -271,7 +269,6 @@ if uploaded_file is not None:
             pdf.cell(0, 4, f"Fecha de Emisión: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')} | Marco: ISO/IEC 27001:2022", 0, 1, "L")
             pdf.ln(2)
             
-            # Caja Metadatos
             pdf.set_fill_color(245, 243, 255)
             y_meta = pdf.get_y()
             pdf.rect(10, y_meta, 190, 15, 'F')
@@ -284,7 +281,6 @@ if uploaded_file is not None:
             pdf.cell(185, 4, f"Hash SHA-256: {hash_log}", 0, 1)
             pdf.set_y(y_meta + 18)
             
-            # 1. Resumen Ejecutivo
             pdf.set_font("Arial", "B", 9)
             pdf.set_text_color(30, 27, 75)
             pdf.cell(0, 5, "1. Resumen Ejecutivo y Detalle del Análisis Realizado", 0, 1)
@@ -298,7 +294,6 @@ if uploaded_file is not None:
             pdf.multi_cell(0, 4, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
             pdf.ln(3)
             
-            # 2. Gráfico Estadístico
             pie_path = None
             try:
                 pdf.set_font("Arial", "B", 9)
@@ -324,7 +319,6 @@ if uploaded_file is not None:
                 try: os.unlink(pie_path)
                 except: pass
 
-            # 3. Plan de Acción e ISO 27001
             pdf.set_font("Arial", "B", 9)
             pdf.set_text_color(30, 27, 75)
             pdf.cell(0, 5, "3. Plan de Acción, Tiempos y Controles ISO/IEC 27001", 0, 1)
@@ -350,4 +344,41 @@ if uploaded_file is not None:
             pdf.cell(65, 5, "Controles A.5.17 y A.9.12 (Accesos)", 1, 1)
             pdf.ln(3)
             
-            # 4.
+            pdf.set_font("Arial", "B", 9)
+            pdf.set_text_color(30, 27, 75)
+            pdf.cell(0, 5, "4. Principales Hallazgos Forenses (Top Registros)", 0, 1)
+            pdf.set_font("Arial", "", 6.5)
+            
+            for _, row in df_resumen.head(10).iterrows():
+                log_id = str(row.get('Log_ID', 'N/A'))
+                host = str(row.get('Hostname', 'N/A'))
+                crit = str(row.get('Criticidad_Consultoria', 'N/A'))
+                just = str(row.get('Justificacion_Tecnica', 'N/A'))
+                linea = f"[{log_id}] Host: {host} | Nivel: {crit} - {just}"
+                pdf.cell(0, 3.8, linea.encode('latin-1', 'replace').decode('latin-1'), 0, 1)
+                
+            tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+            pdf.output(tmp_file.name)
+            return tmp_file.name
+
+        if "pdf_generated_path" not in st.session_state:
+            st.session_state.pdf_generated_path = None
+
+        if st.button("📄 Generar Informe Ejecutivo PDF Profesional (SOC ADVISORY DAV)"):
+            with st.spinner("Compilando reporte A4 corporativo, optimizando espacios y generando PDF..."):
+                st.session_state.pdf_generated_path = generar_pdf_consultoria(df_filtrado, file_name_original, file_hash)
+            st.success("¡Informe generado con éxito bajo estándares A4 ajustados!")
+
+        if st.session_state.pdf_generated_path and os.path.exists(st.session_state.pdf_generated_path):
+            with open(st.session_state.pdf_generated_path, "rb") as f:
+                st.download_button(
+                    label="⬇️ Descargar PDF Profesional para Cliente (SOC ADVISORY DAV)",
+                    data=f,
+                    file_name="Informe_ISO27001_SOC_ADVISORY_DAV.pdf",
+                    mime="application/pdf"
+                )
+                
+    except Exception as e:
+        st.error(f"Error al procesar el archivo Excel. Detalles: {e}")
+else:
+    st.info("👈 Por favor, carga tu archivo de logs (`.xlsx`) en la barra lateral para iniciar la consultoría de seguridad con SOC ADVISORY DAV.")
