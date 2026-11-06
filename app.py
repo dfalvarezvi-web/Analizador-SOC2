@@ -168,6 +168,19 @@ if uploaded_file is not None:
                     st.plotly_chart(fig_time, use_container_width=True)
 
         # ----------------------------------------------------
+        # NUEVO: VISTA INTERACTIVA DE LOG IDs POR CATEGORÍA
+        # ----------------------------------------------------
+        st.subheader("🔍 Trazabilidad de Casos por Log_ID (Drill-Down)")
+        cat_seleccionada = st.selectbox("Selecciona un nivel de riesgo para identificar sus Log_IDs específicos:", ['Crítico', 'Alto', 'Medio', 'Bajo'])
+        df_drill = df_filtrado[df_filtrado['Criticidad_Consultoria'] == cat_seleccionada]
+        st.write(f"Mostrando **{len(df_drill)}** registros asociados a la categoría **{cat_seleccionada}**:")
+        if not df_drill.empty:
+            cols_drill = [c for c in ['Log_ID', 'Timestamp', 'Hostname', 'User', 'Justificacion_Tecnica'] if c in df_drill.columns]
+            st.dataframe(df_drill[cols_drill], use_container_width=True)
+        else:
+            st.info(f"No hay registros para la categoría {cat_seleccionada} con los filtros actuales.")
+
+        # ----------------------------------------------------
         # GUÍA MATRIZ DE RIESGO Y HALLAZGOS FORENSES
         # ----------------------------------------------------
         with st.expander("ℹ️ Guía Ejecutiva: Interpretación de Niveles de Riesgo y Medidas ISO 27001"):
@@ -202,7 +215,7 @@ if uploaded_file is not None:
         st.dataframe(df_vista_tabla[columnas_vista], use_container_width=True)
 
         # ----------------------------------------------------
-        # 7. GENERACIÓN DE INFORME PDF CORREGIDO (ESPACIADO Y DISEÑO A4)
+        # 7. GENERACIÓN DE INFORME PDF CORREGIDO (ESPACIADO Y ORDEN DE CRITICIDAD)
         # ----------------------------------------------------
         st.header("📥 Exportación de Entregable Ejecutivo para Cliente")
         
@@ -213,146 +226,33 @@ if uploaded_file is not None:
                 
             def header(self):
                 self.set_fill_color(30, 27, 75)
-                self.rect(0, 0, 210, 14, 'F')
-                self.set_font('Arial', 'B', 8.5)
+                self.rect(0, 0, 210, 12, 'F')
+                self.set_font('Arial', 'B', 8)
                 self.set_text_color(250, 204, 21)
-                self.set_xy(10, 3)
-                self.cell(100, 8, 'SOC ADVISORY DAV | INFORME TÉCNICO EJECUTIVO', 0, 0, 'L')
-                self.set_xy(110, 3)
-                self.cell(90, 8, 'ISO/IEC 27001:2022 COMPLIANCE', 0, 0, 'R')
-                self.set_y(16)
+                self.set_xy(10, 2.5)
+                self.cell(100, 7, 'SOC ADVISORY DAV | INFORME TÉCNICO EJECUTIVO', 0, 0, 'L')
+                self.set_xy(110, 2.5)
+                self.cell(90, 7, 'ISO/IEC 27001:2022 COMPLIANCE', 0, 0, 'R')
+                self.set_y(14)
                 
             def footer(self):
-                self.set_y(-10)
-                self.set_font('Arial', 'I', 7)
+                self.set_y(-9)
+                self.set_font('Arial', 'I', 6.5)
                 self.set_text_color(128, 128, 128)
-                self.cell(0, 6, f'Página {self.page_no()} | SOC ADVISORY DAV - Documento Confidencial', 0, 0, 'C')
+                self.cell(0, 5, f'Página {self.page_no()} | SOC ADVISORY DAV - Documento Confidencial', 0, 0, 'C')
 
         def generar_pdf_consultoria(df_resumen, nombre_log, hash_log):
             pdf = PDFReport()
             pdf.add_page()
             
-            # Título principal y fecha
-            pdf.set_font("Arial", "B", 11)
+            # Título principal
+            pdf.set_font("Arial", "B", 10.5)
             pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 5, "INFORME DE AUDITORÍA FORENSE Y CUMPLIMIENTO SGSI", 0, 1, "L")
-            pdf.set_font("Arial", "", 7.5)
+            pdf.cell(0, 4.5, "INFORME DE AUDITORÍA FORENSE Y CUMPLIMIENTO SGSI", 0, 1, "L")
+            pdf.set_font("Arial", "", 7)
             pdf.set_text_color(100, 100, 100)
-            pdf.cell(0, 3.5, f"Fecha de Emisión: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')} | Marco: ISO/IEC 27001:2022", 0, 1, "L")
+            pdf.cell(0, 3, f"Fecha de Emisión: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')} | Marco: ISO/IEC 27001:2022", 0, 1, "L")
             pdf.ln(1)
             
             # Caja Metadatos
-            pdf.set_fill_color(245, 243, 255)
-            y_meta = pdf.get_y()
-            pdf.rect(10, y_meta, 190, 13, 'F')
-            pdf.set_xy(12, y_meta + 1.5)
-            pdf.set_font("Arial", "B", 7)
-            pdf.set_text_color(30, 27, 75)
-            pdf.cell(90, 3.5, f"Artefacto: {nombre_log[:45]}", 0, 0)
-            pdf.cell(95, 3.5, f"Total Registros: {len(df_resumen)}", 0, 1)
-            pdf.set_x(12)
-            pdf.cell(185, 3.5, f"Hash SHA-256: {hash_log}", 0, 1)
-            pdf.set_y(y_meta + 15)
-            
-            # 1. Resumen Ejecutivo
-            pdf.set_font("Arial", "B", 8.5)
-            pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 4.5, "1. Resumen Ejecutivo y Detalle del Análisis Realizado", 0, 1)
-            pdf.set_font("Arial", "", 7)
-            pdf.set_text_color(50, 50, 50)
-            resumen_texto = f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre el archivo '{nombre_log}'. Se detectaron {criticos_cnt} eventos críticos y {altos_cnt} anomalías operativas. El análisis coteja la telemetría con controles normativos para mitigar desvíos del SGSI y riesgos de explotación."
-            pdf.multi_cell(0, 3.5, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
-            pdf.ln(2)
-            
-            # 2. Gráfico Estadístico (Control estricto de posición vertical Y)
-            pie_path = None
-            try:
-                pdf.set_font("Arial", "B", 8.5)
-                pdf.set_text_color(30, 27, 75)
-                pdf.cell(0, 4.5, "2. Análisis Estadístico y Distribución de Riesgos", 0, 1)
-                
-                fig, ax = plt.subplots(figsize=(3.2, 1.3))
-                counts = df_resumen['Criticidad_Consultoria'].value_counts()
-                chart_colors = ['#eab308', '#a855f7', '#7c3aed', '#6b21a8'][:len(counts)]
-                ax.pie(counts, labels=counts.index, autopct='%1.1f%%', colors=chart_colors, textprops={'fontsize': 6})
-                
-                pie_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
-                plt.savefig(pie_path, bbox_inches='tight', dpi=180)
-                plt.close(fig)
-                
-                img_y = pdf.get_y() + 1
-                pdf.image(pie_path, x=65, y=img_y, w=75)
-                # Salto de línea estricto posterior a la altura del gráfico (26 mm)
-                pdf.set_y(img_y + 27)
-            except Exception:
-                pdf.ln(2)
-
-            if pie_path and os.path.exists(pie_path):
-                try: os.unlink(pie_path)
-                except: pass
-
-            # 3. Plan de Acción e ISO 27001
-            pdf.set_font("Arial", "B", 8.5)
-            pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 4.5, "3. Plan de Acción, Tiempos y Controles ISO/IEC 27001", 0, 1)
-            pdf.ln(1)
-            
-            pdf.set_font("Arial", "B", 7)
-            pdf.set_fill_color(230, 225, 250)
-            pdf.cell(40, 4, "Plazo / Horizonte", 1, 0, "C", fill=True)
-            pdf.cell(85, 4, "Acciones de Mitigación / Medida", 1, 0, "C", fill=True)
-            pdf.cell(65, 4, "Control ISO 27001:2022", 1, 1, "C", fill=True)
-            
-            pdf.set_font("Arial", "", 6.5)
-            pdf.cell(40, 4, "Inmediato (0 - 24 h)", 1, 0)
-            pdf.cell(85, 4, "Aislamiento de hosts y revocación de credenciales.", 1, 0)
-            pdf.cell(65, 4, "Control A.5.24 (Gestión de Incidentes)", 1, 1)
-            
-            pdf.cell(40, 4, "Corto Plazo (1 - 7 días)", 1, 0)
-            pdf.cell(85, 4, "Auditoría de comandos y hardening perimetral.", 1, 0)
-            pdf.cell(65, 4, "Controles A.8.7 y A.8.16 (Monitoreo)", 1, 1)
-            
-            pdf.cell(40, 4, "Largo Plazo (30 - 90 días)", 1, 0)
-            pdf.cell(85, 4, "Mínimo privilegio y automatización SIEM.", 1, 0)
-            pdf.cell(65, 4, "Controles A.5.17 y A.9.12 (Accesos)", 1, 1)
-            pdf.ln(2)
-            
-            # 4. Hallazgos Forenses
-            pdf.set_font("Arial", "B", 8.5)
-            pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 4.5, "4. Principales Hallazgos Forenses (Top Registros)", 0, 1)
-            pdf.set_font("Arial", "", 6)
-            
-            for _, row in df_resumen.head(8).iterrows():
-                log_id = str(row.get('Log_ID', 'N/A'))
-                host = str(row.get('Hostname', 'N/A'))
-                crit = str(row.get('Criticidad_Consultoria', 'N/A'))
-                just = str(row.get('Justificacion_Tecnica', 'N/A'))
-                linea = f"[{log_id}] Host: {host} | Nivel: {crit} - {just}"
-                pdf.cell(0, 3.2, linea.encode('latin-1', 'replace').decode('latin-1'), 0, 1)
-                
-            tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
-            pdf.output(tmp_file.name)
-            return tmp_file.name
-
-        if "pdf_generated_path" not in st.session_state:
-            st.session_state.pdf_generated_path = None
-
-        if st.button("📄 Generar Informe Ejecutivo PDF Profesional (SOC ADVISORY DAV)"):
-            with st.spinner("Compilando reporte A4 corporativo, optimizando espacios y generando PDF..."):
-                st.session_state.pdf_generated_path = generar_pdf_consultoria(df_filtrado, file_name_original, file_hash)
-            st.success("¡Informe generado con éxito bajo estándares A4 ajustados!")
-
-        if st.session_state.pdf_generated_path and os.path.exists(st.session_state.pdf_generated_path):
-            with open(st.session_state.pdf_generated_path, "rb") as f:
-                st.download_button(
-                    label="⬇️ Descargar PDF Profesional para Cliente (SOC ADVISORY DAV)",
-                    data=f,
-                    file_name="Informe_ISO27001_SOC_ADVISORY_DAV.pdf",
-                    mime="application/pdf"
-                )
-                
-    except Exception as e:
-        st.error(f"Error al procesar el archivo Excel. Detalles: {e}")
-else:
-    st.info("👈 Por favor, carga tu archivo de logs (`.xlsx`) en la barra lateral para iniciar la consultoría de seguridad con SOC ADVISORY DAV.")
+            pdf.set_fill_color(245, 2
