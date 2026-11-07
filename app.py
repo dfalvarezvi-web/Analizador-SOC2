@@ -96,13 +96,13 @@ if uploaded_file is not None:
             # Alineación Multi-ISO y Criticidad
             if vector in ['Escalamiento de Privilegios', 'Comandos y Procesos'] and ('high' in sev or 'critical' in sev or 'powershell' in cmd):
                 criticidad = 'Crítico'
-                justificacion = f"Vector [{vector}]: Código malicioso / privilegios. ISO 27001: A.8.7/A.8.16 | ISO 27035: Fase Contención/Erradicación | ISO 27701: Alerta de Privacidad PII."
+                justificacion = f"Vector [{vector}]: Ejecución de código malicioso o privilegios elevados. ISO 27001: A.8.7/A.8.16 | ISO 27035: Contención/Erradicación | ISO 27701: Alerta PII."
             elif vector in ['Fuerza Bruta', 'Movimiento Lateral'] or 'fail' in res or 'denied' in res:
                 criticidad = 'Alto'
-                justificacion = f"Vector [{vector}]: Acceso no autorizado o fuerza bruta. ISO 27001: A.9.4.2 | ISO 27035: Fase Detección/Análisis | ISO 27701: Exposición de Cuentas."
+                justificacion = f"Vector [{vector}]: Fallo de autenticación o acceso lateral. ISO 27001: A.9.4.2 / A.5.17 | ISO 27035: Análisis | ISO 27701: Cuentas."
             elif vector == 'Inicios Sospechosos' or 'informational' in sev:
                 criticidad = 'Medio'
-                justificacion = f"Vector [{vector}]: Evento operativo de sesión para '{user}'. ISO 27001: A.8.15 | ISO 27035: Monitoreo Activo | ISO 27701: Trazabilidad de Usuario."
+                justificacion = f"Vector [{vector}]: Evento operativo de sesión para '{user}'. ISO 27001: A.8.15 | ISO 27035: Monitoreo | ISO 27701: Trazabilidad."
             else:
                 criticidad = 'Bajo'
                 justificacion = f"Vector [{vector}]: Actividad rutinaria sin desviación. ISO 27001: A.8.16 | ISO 27035: Operación Normal."
@@ -166,11 +166,17 @@ if uploaded_file is not None:
         ]
 
         # ----------------------------------------------------
-        # 4. EXPLICACIÓN DETALLADA DEL ANÁLISIS REALIZADO
+        # 4. EXPLICACIÓN DETALLADA DEL ANÁLISIS REALIZADO (COMPLETA Y CON ISOS)
         # ----------------------------------------------------
         st.markdown("---")
-        st.subheader("📑 Memoria Técnica y Marco Normativo Multi-ISO")
-        st.markdown("El análisis evalúa la telemetría bajo los **6 Vectores de Ataque Profesionales**, integrando el Sistema de Gestión de Seguridad de la Información (**ISO/IEC 27001:2022**), el ciclo de vida de Gestión de Incidentes (**ISO/IEC 27035**) y los controles de Privacidad y Protección de Datos (**ISO/IEC 27701**).")
+        st.subheader("📑 Memoria Técnica y Detalle del Análisis Realizado")
+        st.markdown("""
+        El presente análisis evalúa la telemetría y los registros de eventos de seguridad (SIEM) mediante un motor de correlación heurística basado en matrices de riesgo corporativas y marcos de referencia internacionales de primer nivel:
+        * **MITRE ATT&CK:** Identificación y mapeo de **los 6 Vectores de Ataque Profesionales** (*Fuerza Bruta, Inicios Sospechosos, Escalamiento de Privilegios, Comandos y Procesos, Movimiento Lateral y Otras Anomalías*).
+        * **ISO/IEC 27001:2022:** Alineación de controles SGSI para la gestión de accesos, protección contra malware y monitoreo.
+        * **ISO/IEC 27035:** Gestión de incidentes y cumplimiento de las fases de detección, análisis, contención y erradicación.
+        * **ISO/IEC 27701:** Protección de la privacidad y trazabilidad de cuentas y datos personales (PII) expuestos en la telemetría.
+        """)
         st.markdown("---")
 
         # ----------------------------------------------------
@@ -262,13 +268,25 @@ if uploaded_file is not None:
                 st.write("No hay registros para este nivel de riesgo con el filtro actual.")
 
         # ----------------------------------------------------
-        # GUÍA NORMATIVA MULTI-ISO
+        # GUÍA MATRIZ DE RIESGO Y HALLAZGOS FORENSES
         # ----------------------------------------------------
-        with st.expander("ℹ️ Guía Ejecutiva: Marcos Normativos (ISO 27001, ISO 27035 e ISO 27701)"):
+        with st.expander("ℹ️ Guía Ejecutiva: Interpretación de Niveles de Riesgo y Medidas Multi-ISO"):
             st.markdown("""
-            * **ISO/IEC 27001:2022 (SGSI):** Define los controles de seguridad de la información aplicados (ej. Controles de acceso, monitoreo y gestión de incidentes).
-            * **ISO/IEC 27035 (Gestión de Incidentes):** Guía las fases operativas de respuesta ante ataques detectados en los 6 vectores (Detección, Análisis, Contención, Erradicación y Recuperación).
-            * **ISO/IEC 27701 (Privacidad de Datos / PIMS):** Asegura la trazabilidad y protección de la información de identidad y cuentas de usuario afectadas en los registros.
+            ### 🚨 1. Riesgo Crítico (Respuesta Inmediata: 0 - 24 h)
+            * **Implica:** Evidencia clara de compromiso de activos, ejecución remota de código o escalamiento de privilegios.
+            * **Marcos Aplicados:** **ISO 27001 (A.5.24 y A.8.7)** | **ISO 27035 (Contención Inmediata)** | **ISO 27701 (Protección PII)**.
+
+            ### ⚠️ 2. Riesgo Alto (Respuesta a Corto Plazo: 1 - 7 días)
+            * **Implica:** Fuerza bruta o movimiento lateral detectado en la red.
+            * **Marcos Aplicados:** **ISO 27001 (A.5.17 / A.9.4.2)** | **ISO 27035 (Análisis y Erradicación)**.
+
+            ### 🟣 3. Riesgo Medio (Respuesta a Mediano Plazo: 7 - 30 días)
+            * **Implica:** Inicios sospechosos u operaciones administrativas relevantes.
+            * **Marcos Aplicados:** **ISO 27001 (A.8.15)** | **ISO 27701 (Trazabilidad de Identidad)**.
+
+            ### 🟢 4. Riesgo Bajo (Monitoreo Continuo)
+            * **Implica:** Actividad rutinaria dentro de la línea base esperada.
+            * **Marcos Aplicados:** **ISO 27001 (A.8.16)** | **ISO 27035 (Operación Normal)**.
             """)
 
         # ----------------------------------------------------
@@ -344,7 +362,7 @@ if uploaded_file is not None:
             pdf.cell(0, 5, "1. Resumen Ejecutivo y Desglose de Casos por Riesgos", 0, 1)
             pdf.set_font("Arial", "", 7.5)
             pdf.set_text_color(50, 50, 50)
-            resumen_texto = f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre '{nombre_log}'. Se analizaron un total de {len(df_resumen)} casos divididos por niveles de riesgo: {criticos_cnt} Críticos, {altos_cnt} Altos, {medios_cnt} Medios y {bajos_cnt} Bajos. El análisis evalúa los 6 Vectores de Ataque Profesionales bajo cumplimiento normativo integral."
+            resumen_texto = f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre '{nombre_log}'. Se analizaron un total de {len(df_resumen)} casos divididos por niveles de riesgo: {criticos_cnt} Críticos, {altos_cnt} Altos, {medios_cnt} Medios y {bajos_cnt} Bajos. El análisis evalúa los 6 Vectores de Ataque Profesionales bajo cumplimiento normativo integral (ISO 27001, ISO 27035 e ISO 27701)."
             pdf.multi_cell(0, 4, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
             pdf.ln(2)
             
