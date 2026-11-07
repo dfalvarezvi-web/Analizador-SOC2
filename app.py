@@ -185,15 +185,31 @@ if uploaded_file is not None:
             'Bajo': '#6b21a8'
         }
 
-        # Gráficos interactivos en la interfaz: Pastel de Criticidad, Pastel de Vectores y Línea de Tiempo
+        # Gráficos interactivos en la interfaz: Pastel de Criticidad (con conteo, % y selección interactiva), Pastel de Vectores y Línea de Tiempo
         col_g1, col_g2, col_g3 = st.columns(3)
+        
         with col_g1:
-            fig_pie_crit = px.pie(df_filtrado, names='Criticidad_Consultoria', title='Distribución por Criticidad (Casos y %)', color='Criticidad_Consultoria', color_discrete_map=color_palette)
+            fig_pie_crit = px.pie(
+                df_filtrado, 
+                names='Criticidad_Consultoria', 
+                title='Distribución por Criticidad (Casos y %)', 
+                color='Criticidad_Consultoria', 
+                color_discrete_map=color_palette
+            )
+            fig_pie_crit.update_traces(textinfo='label+percent+value')
             fig_pie_crit.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
-            st.plotly_chart(fig_pie_crit, use_container_width=True)
+            
+            # Capturar evento de selección en el pastel de criticidad para mostrar los Log ID asociados
+            selected_point = st.plotly_chart(fig_pie_crit, use_container_width=True, on_select="rerun", selection_mode="points")
 
         with col_g2:
-            fig_pie_vec = px.pie(df_filtrado, names='Vector_Ataque', title='Distribución por los 6 Vectores de Ataque', color_discrete_sequence=px.colors.qualitative.Set2)
+            fig_pie_vec = px.pie(
+                df_filtrado, 
+                names='Vector_Ataque', 
+                title='Distribución por los 6 Vectores de Ataque', 
+                color_discrete_sequence=px.colors.qualitative.Set2
+            )
+            fig_pie_vec.update_traces(textinfo='label+percent+value')
             fig_pie_vec.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
             st.plotly_chart(fig_pie_vec, use_container_width=True)
             
@@ -206,6 +222,28 @@ if uploaded_file is not None:
                     fig_time = px.line(df_freq_grouped, x='Time_Group', y='Frecuencia', color='Criticidad_Consultoria', title='Línea de Tiempo Temporal', color_discrete_map=color_palette)
                     fig_time.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
                     st.plotly_chart(fig_time, use_container_width=True)
+
+        # ----------------------------------------------------
+        # INTERACTIVIDAD AL HACER CLIC EN EL PASTEL (LOG ID POR RIESGO)
+        # ----------------------------------------------------
+        selected_risk_level = None
+        if selected_point and "selection" in selected_point and "points" in selected_point["selection"]:
+            points = selected_point["selection"]["points"]
+            if points:
+                selected_risk_level = points[0].get("label")
+
+        if selected_risk_level:
+            st.info(f"🎯 **Casos identificados al hacer clic en el Nivel de Riesgo [{selected_risk_level}]:**")
+            df_selected_cases = df_filtrado[df_filtrado['Criticidad_Consultoria'] == selected_risk_level]
+            
+            if not df_selected_cases.empty:
+                # Mostrar listado interactivo con Log_ID y detalles clave
+                st.dataframe(
+                    df_selected_cases[['Log_ID', 'Timestamp', 'Hostname', 'User', 'Vector_Ataque', 'Event_Description', 'Justificacion_Tecnica']],
+                    use_container_width=True
+                )
+            else:
+                st.write("No hay registros para este nivel de riesgo con el filtro actual.")
 
         # ----------------------------------------------------
         # GUÍA MATRIZ DE RIESGO Y HALLAZGOS FORENSES
@@ -230,7 +268,7 @@ if uploaded_file is not None:
             """)
 
         # ----------------------------------------------------
-        # 6. MATRIZ DETALLADA Y FILTRO DE JUSTIFICACIONES TÉCNICAS
+        # 6. MATRIZ DETALLADA Y FILTRO POR LOG ID Y JUSTIFICACIÓN
         # ----------------------------------------------------
         st.header("📋 Detalle de Registros, Log ID y Hallazgos Forenses")
         busqueda_justificacion = st.text_input("🔍 Filtrar Hallazgos por Texto en Justificación Técnica o Log ID:", "")
@@ -245,7 +283,7 @@ if uploaded_file is not None:
         st.dataframe(df_vista_tabla[columnas_vista], use_container_width=True)
 
         # ----------------------------------------------------
-        # 7. GENERACIÓN DE INFORME PDF PROFESIONAL CON GRÁFICOS AL FINAL
+        # 7. GENERACIÓN DE INFORME PDF PROFESIONAL CON FLUJO CONTINUO
         # ----------------------------------------------------
         st.header("📥 Exportación de Entregable Ejecutivo para Cliente")
         
@@ -304,7 +342,7 @@ if uploaded_file is not None:
             pdf.set_text_color(50, 50, 50)
             resumen_texto = f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre '{nombre_log}'. Se analizaron un total de {len(df_resumen)} casos divididos por niveles de riesgo: {criticos_cnt} Críticos, {altos_cnt} Altos, {medios_cnt} Medios y {bajos_cnt} Bajos. El análisis evalúa los 6 Vectores de Ataque Profesionales para garantizar el control y mitigación de desvíos del SGSI."
             pdf.multi_cell(0, 4, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
-            pdf.ln(3)
+            pdf.ln(2)
             
             # 2. Resumen por Vectores de Ataque
             pdf.set_font("Arial", "B", 9)
@@ -314,7 +352,7 @@ if uploaded_file is not None:
             vector_counts = df_resumen['Vector_Ataque'].value_counts()
             for vec, count in vector_counts.items():
                 pdf.cell(0, 4, f"- Vector [{vec}]: {count} casos identificados.", 0, 1)
-            pdf.ln(3)
+            pdf.ln(2)
 
             # 3. Plan de Acción y Recomendaciones
             pdf.set_font("Arial", "B", 9)
@@ -340,7 +378,7 @@ if uploaded_file is not None:
             pdf.cell(40, 5, "Largo Plazo (30 - 90 días)", 1, 0)
             pdf.cell(85, 5, "Principio de mínimo privilegio y automatización SIEM.", 1, 0)
             pdf.cell(65, 5, "Controles A.5.17 y A.9.12 (Accesos)", 1, 1)
-            pdf.ln(3)
+            pdf.ln(2)
             
             # 4. Detalle de Hallazgos, Log ID y Evidencias
             pdf.set_font("Arial", "B", 9)
@@ -360,18 +398,18 @@ if uploaded_file is not None:
                 pdf.multi_cell(0, 3.5, linea.encode('latin-1', 'replace').decode('latin-1'))
                 pdf.ln(1)
 
-            # 5. ANEXO GRÁFICO AL FINAL (Pastel de Riesgos, Vectores y Línea de Tiempo)
-            pdf.add_page()
+            # 5. ANEXO GRÁFICO AL FINAL (Continuo y optimizado sin espacio vacío)
+            pdf.ln(2)
             pdf.set_font("Arial", "B", 10)
             pdf.set_text_color(30, 27, 75)
             pdf.cell(0, 6, "5. Anexo Gráfico y Distribución de Incidentes", 0, 1, "L")
-            pdf.ln(2)
+            pdf.ln(1)
             
             pie_path = None
             try:
-                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7, 2.8))
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7, 2.5))
                 
-                # Gráfico 1: Pastel de Riesgos (Criticidad) con porcentajes
+                # Gráfico 1: Pastel de Riesgos (Criticidad)
                 counts_crit = df_resumen['Criticidad_Consultoria'].value_counts()
                 colors_crit = ['#eab308', '#facc15', '#a855f7', '#6b21a8'][:len(counts_crit)]
                 ax1.pie(counts_crit, labels=counts_crit.index, autopct='%1.1f%%', colors=colors_crit, textprops={'fontsize': 6})
@@ -389,7 +427,7 @@ if uploaded_file is not None:
                 plt.savefig(pie_path, bbox_inches='tight', dpi=180)
                 plt.close(fig)
                 
-                pdf.image(pie_path, x=20, y=pdf.get_y() + 5, w=170)
+                pdf.image(pie_path, x=20, w=170)
             except Exception as e:
                 pdf.cell(0, 5, f"No se pudo renderizar el anexo gráfico: {str(e)}", 0, 1)
 
@@ -405,7 +443,7 @@ if uploaded_file is not None:
             st.session_state.pdf_generated_path = None
 
         if st.button("📄 Generar Informe Ejecutivo PDF Profesional (SOC ADVISORY DAV)"):
-            with st.spinner("Compilando reporte A4 corporativo con vectores y gráficos al final..."):
+            with st.spinner("Compilando reporte A4 corporativo sin espacios vacíos..."):
                 st.session_state.pdf_generated_path = generar_pdf_consultoria(df_filtrado, file_name_original, file_hash)
             st.success("¡Informe generado con éxito bajo estándares A4 ajustados!")
 
