@@ -41,7 +41,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🛡️ SOC ADVISORY DAV | Centro de Operaciones de Seguridad")
-st.markdown("### Plataforma Avanzada de Análisis Forense, Correlación SIEM y Gobernanza SGSI")
+st.markdown("### Plataforma Avanzada de Análisis Forense, Correlación SIEM y Gobernanza SGSI Multi-ISO")
 
 # ----------------------------------------------------
 # 1. CARGA Y NORMALIZACIÓN DE DATOS
@@ -69,7 +69,7 @@ if uploaded_file is not None:
             st.dataframe(df.head(10), use_container_width=True)
             
         # ----------------------------------------------------
-        # 2. MOTOR DE CORRELACIÓN: 6 VECTORES Y RIESGOS ISO 27001
+        # 2. MOTOR DE CORRELACIÓN: 6 VECTORES Y MULTI-ISO (27001, 27035, 27701)
         # ----------------------------------------------------
         def clasificar_vector_y_riesgo(row):
             sev = str(row.get('Severity', '')).lower()
@@ -77,6 +77,7 @@ if uploaded_file is not None:
             cmd = str(row.get('Process_CommandLine', '')).lower()
             res = str(row.get('Result', '')).lower()
             event_id = str(row.get('Event_ID', ''))
+            user = str(row.get('User', ''))
             
             # Clasificación de los 6 Vectores de Ataque Profesionales
             if 'fail' in res or '4625' in event_id or 'failed' in desc or 'bad password' in desc:
@@ -92,19 +93,19 @@ if uploaded_file is not None:
             else:
                 vector = 'Otras Anomalías'
 
-            # Criticidad e Impacto ISO 27001
+            # Alineación Multi-ISO y Criticidad
             if vector in ['Escalamiento de Privilegios', 'Comandos y Procesos'] and ('high' in sev or 'critical' in sev or 'powershell' in cmd):
                 criticidad = 'Crítico'
-                justificacion = f"Vector [{vector}]: Ejecución de código malicioso o privilegios elevados. Controles ISO 27001: A.8.7 (Malware) y A.8.16 (Monitoreo)."
+                justificacion = f"Vector [{vector}]: Código malicioso / privilegios. ISO 27001: A.8.7/A.8.16 | ISO 27035: Fase Contención/Erradicación | ISO 27701: Alerta de Privacidad PII."
             elif vector in ['Fuerza Bruta', 'Movimiento Lateral'] or 'fail' in res or 'denied' in res:
                 criticidad = 'Alto'
-                justificacion = f"Vector [{vector}]: Fallo de autenticación o acceso lateral relevante. Control ISO 27001: A.9.4.2 / A.5.17 (Accesos)."
+                justificacion = f"Vector [{vector}]: Acceso no autorizado o fuerza bruta. ISO 27001: A.9.4.2 | ISO 27035: Fase Detección/Análisis | ISO 27701: Exposición de Cuentas."
             elif vector == 'Inicios Sospechosos' or 'informational' in sev:
                 criticidad = 'Medio'
-                justificacion = f"Vector [{vector}]: Evento operativo relevante. Trazabilidad requerida por Control ISO 27001: A.8.15 (Registro de Eventos)."
+                justificacion = f"Vector [{vector}]: Evento operativo de sesión para '{user}'. ISO 27001: A.8.15 | ISO 27035: Monitoreo Activo | ISO 27701: Trazabilidad de Usuario."
             else:
                 criticidad = 'Bajo'
-                justificacion = f"Vector [{vector}]: Actividad rutinaria sin impacto crítico en la infraestructura."
+                justificacion = f"Vector [{vector}]: Actividad rutinaria sin desviación. ISO 27001: A.8.16 | ISO 27035: Operación Normal."
 
             return vector, criticidad, justificacion
 
@@ -115,10 +116,29 @@ if uploaded_file is not None:
         df_analisis['Justificacion_Tecnica'] = [r[2] for r in resultados]
 
         # ----------------------------------------------------
-        # 3. FILTROS INTERACTIVOS DE CONSULTORÍA
+        # 3. FILTROS INTERACTIVOS DE CONSULTORÍA (INCLUYENDO FECHAS)
         # ----------------------------------------------------
         st.sidebar.header("⚙️ 3. Filtros de Auditoría")
         
+        # Filtro de Rango de Fechas
+        if 'Timestamp' in df_analisis.columns and not df_analisis['Timestamp'].isna().all():
+            min_date = df_analisis['Timestamp'].min().date()
+            max_date = df_analisis['Timestamp'].max().date()
+            
+            rango_fechas = st.sidebar.date_input(
+                "Filtrar por Rango de Fechas:",
+                value=(min_date, max_date),
+                min_value=min_date,
+                max_value=max_date
+            )
+            
+            if len(rango_fechas) == 2:
+                start_date, end_date = rango_fechas
+                df_analisis = df_analisis[
+                    (df_analisis['Timestamp'].dt.date >= start_date) & 
+                    (df_analisis['Timestamp'].dt.date <= end_date)
+                ]
+
         vectores_disponibles = df_analisis['Vector_Ataque'].unique().tolist()
         vectores_sel = st.sidebar.multiselect(
             "Filtrar por Vector de Ataque:",
@@ -149,8 +169,8 @@ if uploaded_file is not None:
         # 4. EXPLICACIÓN DETALLADA DEL ANÁLISIS REALIZADO
         # ----------------------------------------------------
         st.markdown("---")
-        st.subheader("📑 Memoria Técnica y Detalle del Análisis Realizado")
-        st.markdown("El presente análisis evalúa la telemetría y los registros de eventos de seguridad (SIEM) evaluando **los 6 Vectores de Ataque Profesionales** mediante un motor heurístico alineado con **MITRE ATT&CK** e **ISO/IEC 27001:2022**.")
+        st.subheader("📑 Memoria Técnica y Marco Normativo Multi-ISO")
+        st.markdown("El análisis evalúa la telemetría bajo los **6 Vectores de Ataque Profesionales**, integrando el Sistema de Gestión de Seguridad de la Información (**ISO/IEC 27001:2022**), el ciclo de vida de Gestión de Incidentes (**ISO/IEC 27035**) y los controles de Privacidad y Protección de Datos (**ISO/IEC 27701**).")
         st.markdown("---")
 
         # ----------------------------------------------------
@@ -166,7 +186,7 @@ if uploaded_file is not None:
         hosts_comprometidos = df_filtrado[df_filtrado['Criticidad_Consultoria'].isin(['Crítico', 'Alto'])]['Hostname'].nunique()
         
         if criticos_cnt > 0:
-            st.error(f"🚨 **ALTA AMENAZA DETECTADA:** Se han identificado {criticos_cnt} eventos críticos. Se requiere contención inmediata.")
+            st.error(f"🚨 **ALTA AMENAZA DETECTADA:** Se han identificado {criticos_cnt} eventos críticos. Se requiere contención inmediata bajo ISO 27035.")
         elif altos_cnt > 0:
             st.warning(f"⚠️ **ADVERTENCIA DE SEGURIDAD:** Se registran {altos_cnt} anomalías de nivel alto.")
         else:
@@ -185,7 +205,6 @@ if uploaded_file is not None:
             'Bajo': '#6b21a8'
         }
 
-        # Gráficos interactivos en la interfaz: Pastel de Criticidad (con conteo, % y selección interactiva), Pastel de Vectores y Línea de Tiempo
         col_g1, col_g2, col_g3 = st.columns(3)
         
         with col_g1:
@@ -198,8 +217,6 @@ if uploaded_file is not None:
             )
             fig_pie_crit.update_traces(textinfo='label+percent+value')
             fig_pie_crit.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
-            
-            # Capturar evento de selección en el pastel de criticidad para mostrar los Log ID asociados
             selected_point = st.plotly_chart(fig_pie_crit, use_container_width=True, on_select="rerun", selection_mode="points")
 
         with col_g2:
@@ -224,7 +241,7 @@ if uploaded_file is not None:
                     st.plotly_chart(fig_time, use_container_width=True)
 
         # ----------------------------------------------------
-        # INTERACTIVIDAD AL HACER CLIC EN EL PASTEL (LOG ID POR RIESGO)
+        # INTERACTIVIDAD AL HACER CLIC EN EL PASTEL (LOG ID)
         # ----------------------------------------------------
         selected_risk_level = None
         if selected_point and "selection" in selected_point and "points" in selected_point["selection"]:
@@ -237,7 +254,6 @@ if uploaded_file is not None:
             df_selected_cases = df_filtrado[df_filtrado['Criticidad_Consultoria'] == selected_risk_level]
             
             if not df_selected_cases.empty:
-                # Mostrar listado interactivo con Log_ID y detalles clave
                 st.dataframe(
                     df_selected_cases[['Log_ID', 'Timestamp', 'Hostname', 'User', 'Vector_Ataque', 'Event_Description', 'Justificacion_Tecnica']],
                     use_container_width=True
@@ -246,29 +262,17 @@ if uploaded_file is not None:
                 st.write("No hay registros para este nivel de riesgo con el filtro actual.")
 
         # ----------------------------------------------------
-        # GUÍA MATRIZ DE RIESGO Y HALLAZGOS FORENSES
+        # GUÍA NORMATIVA MULTI-ISO
         # ----------------------------------------------------
-        with st.expander("ℹ️ Guía Ejecutiva: Interpretación de Niveles de Riesgo y Medidas ISO 27001"):
+        with st.expander("ℹ️ Guía Ejecutiva: Marcos Normativos (ISO 27001, ISO 27035 e ISO 27701)"):
             st.markdown("""
-            ### 🚨 1. Riesgo Crítico (Respuesta Inmediata: 0 - 24 h)
-            * **Implica:** Evidencia clara de compromiso de activos, ejecución remota de código o escalamiento de privilegios.
-            * **Medidas ISO 27001:** **A.5.24 (Gestión de Incidentes)** y **A.8.7 (Protección contra Malware)**.
-
-            ### ⚠️ 2. Riesgo Alto (Respuesta a Corto Plazo: 1 - 7 días)
-            * **Implica:** Fuerza bruta o movimiento lateral detectado en la red.
-            * **Medidas ISO 27001:** **A.5.17 (Autenticación)** y **A.8.16 (Monitoreo)**.
-
-            ### 🟣 3. Riesgo Medio (Respuesta a Mediano Plazo: 7 - 30 días)
-            * **Implica:** Inicios sospechosos u operaciones administrativas relevantes.
-            * **Medidas ISO 27001:** **A.8.15 (Registro de Eventos)**.
-
-            ### 🟢 4. Riesgo Bajo (Monitoreo Continuo)
-            * **Implica:** Actividad rutinaria dentro de la línea base esperada.
-            * **Medidas ISO 27001:** **A.8.16 (Actividad de Monitoreo)**.
+            * **ISO/IEC 27001:2022 (SGSI):** Define los controles de seguridad de la información aplicados (ej. Controles de acceso, monitoreo y gestión de incidentes).
+            * **ISO/IEC 27035 (Gestión de Incidentes):** Guía las fases operativas de respuesta ante ataques detectados en los 6 vectores (Detección, Análisis, Contención, Erradicación y Recuperación).
+            * **ISO/IEC 27701 (Privacidad de Datos / PIMS):** Asegura la trazabilidad y protección de la información de identidad y cuentas de usuario afectadas en los registros.
             """)
 
         # ----------------------------------------------------
-        # 6. MATRIZ DETALLADA Y FILTRO POR LOG ID Y JUSTIFICACIÓN
+        # 6. MATRIZ DETALLADA Y FILTRO POR LOG ID
         # ----------------------------------------------------
         st.header("📋 Detalle de Registros, Log ID y Hallazgos Forenses")
         busqueda_justificacion = st.text_input("🔍 Filtrar Hallazgos por Texto en Justificación Técnica o Log ID:", "")
@@ -283,7 +287,7 @@ if uploaded_file is not None:
         st.dataframe(df_vista_tabla[columnas_vista], use_container_width=True)
 
         # ----------------------------------------------------
-        # 7. GENERACIÓN DE INFORME PDF PROFESIONAL CON FLUJO CONTINUO
+        # 7. GENERACIÓN DE INFORME PDF MULTI-ISO CON FLUJO CONTINUO
         # ----------------------------------------------------
         st.header("📥 Exportación de Entregable Ejecutivo para Cliente")
         
@@ -300,7 +304,7 @@ if uploaded_file is not None:
                 self.set_xy(10, 4)
                 self.cell(100, 8, 'SOC ADVISORY DAV | INFORME TÉCNICO EJECUTIVO', 0, 0, 'L')
                 self.set_xy(110, 4)
-                self.cell(90, 8, 'ISO/IEC 27001:2022 COMPLIANCE', 0, 0, 'R')
+                self.cell(90, 8, 'MULTI-ISO COMPLIANCE (27001/27035/27701)', 0, 0, 'R')
                 self.ln(20)
                 
             def footer(self):
@@ -315,10 +319,10 @@ if uploaded_file is not None:
             
             pdf.set_font("Arial", "B", 12)
             pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 6, "INFORME DE AUDITORÍA FORENSE Y CUMPLIMIENTO SGSI", 0, 1, "L")
+            pdf.cell(0, 6, "INFORME DE AUDITORÍA FORENSE Y GOBERNANZA MULTI-ISO", 0, 1, "L")
             pdf.set_font("Arial", "", 8)
             pdf.set_text_color(100, 100, 100)
-            pdf.cell(0, 4, f"Fecha de Emisión: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')} | Marco: ISO/IEC 27001:2022", 0, 1, "L")
+            pdf.cell(0, 4, f"Fecha de Emisión: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')} | Marcos: ISO 27001, ISO 27035, ISO 27701", 0, 1, "L")
             pdf.ln(2)
             
             # Metadata Box
@@ -340,7 +344,7 @@ if uploaded_file is not None:
             pdf.cell(0, 5, "1. Resumen Ejecutivo y Desglose de Casos por Riesgos", 0, 1)
             pdf.set_font("Arial", "", 7.5)
             pdf.set_text_color(50, 50, 50)
-            resumen_texto = f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre '{nombre_log}'. Se analizaron un total de {len(df_resumen)} casos divididos por niveles de riesgo: {criticos_cnt} Críticos, {altos_cnt} Altos, {medios_cnt} Medios y {bajos_cnt} Bajos. El análisis evalúa los 6 Vectores de Ataque Profesionales para garantizar el control y mitigación de desvíos del SGSI."
+            resumen_texto = f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre '{nombre_log}'. Se analizaron un total de {len(df_resumen)} casos divididos por niveles de riesgo: {criticos_cnt} Críticos, {altos_cnt} Altos, {medios_cnt} Medios y {bajos_cnt} Bajos. El análisis evalúa los 6 Vectores de Ataque Profesionales bajo cumplimiento normativo integral."
             pdf.multi_cell(0, 4, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
             pdf.ln(2)
             
@@ -354,30 +358,30 @@ if uploaded_file is not None:
                 pdf.cell(0, 4, f"- Vector [{vec}]: {count} casos identificados.", 0, 1)
             pdf.ln(2)
 
-            # 3. Plan de Acción y Recomendaciones
+            # 3. Plan de Acción y Recomendaciones Multi-ISO
             pdf.set_font("Arial", "B", 9)
             pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 5, "3. Plan de Acción y Recomendaciones de Seguridad Corporativa", 0, 1)
+            pdf.cell(0, 5, "3. Plan de Acción, Gobernanza e Integración Multi-ISO", 0, 1)
             pdf.ln(1)
             
             pdf.set_font("Arial", "B", 7.5)
             pdf.set_fill_color(230, 225, 250)
-            pdf.cell(40, 5, "Horizonte", 1, 0, "C", fill=True)
-            pdf.cell(85, 5, "Acciones de Mitigación / Medida", 1, 0, "C", fill=True)
-            pdf.cell(65, 5, "Control ISO 27001:2022", 1, 1, "C", fill=True)
+            pdf.cell(35, 5, "Horizonte", 1, 0, "C", fill=True)
+            pdf.cell(75, 5, "Acciones de Mitigación / Medida", 1, 0, "C", fill=True)
+            pdf.cell(80, 5, "Marcos y Controles Aplicados", 1, 1, "C", fill=True)
             
-            pdf.set_font("Arial", "", 7)
-            pdf.cell(40, 5, "Inmediato (0 - 24 h)", 1, 0)
-            pdf.cell(85, 5, "Aislamiento de hosts y revocación de credenciales comprometidas.", 1, 0)
-            pdf.cell(65, 5, "Control A.5.24 (Gestión de Incidentes)", 1, 1)
+            pdf.set_font("Arial", "", 6.5)
+            pdf.cell(35, 5, "Inmediato (0 - 24 h)", 1, 0)
+            pdf.cell(75, 5, "Aislamiento de hosts y contención de incidentes.", 1, 0)
+            pdf.cell(80, 5, "ISO 27001 (A.5.24) | ISO 27035 (Contención)", 1, 1)
             
-            pdf.cell(40, 5, "Corto Plazo (1 - 7 días)", 1, 0)
-            pdf.cell(85, 5, "Auditoría de comandos y mitigación perimetral (RDP/SMB).", 1, 0)
-            pdf.cell(65, 5, "Controles A.8.7 y A.8.16 (Monitoreo)", 1, 1)
+            pdf.cell(35, 5, "Corto Plazo (1 - 7 días)", 1, 0)
+            pdf.cell(75, 5, "Auditoría de comandos y protección de cuentas PII.", 1, 0)
+            pdf.cell(80, 5, "ISO 27035 (Análisis) | ISO 27701 (Privacidad)", 1, 1)
             
-            pdf.cell(40, 5, "Largo Plazo (30 - 90 días)", 1, 0)
-            pdf.cell(85, 5, "Principio de mínimo privilegio y automatización SIEM.", 1, 0)
-            pdf.cell(65, 5, "Controles A.5.17 y A.9.12 (Accesos)", 1, 1)
+            pdf.cell(35, 5, "Largo Plazo (30 - 90 d)", 1, 0)
+            pdf.cell(75, 5, "Hardening y automatización de respuesta SIEM.", 1, 0)
+            pdf.cell(80, 5, "ISO 27001 (A.8.16) | Mejora Continua SGSI", 1, 1)
             pdf.ln(2)
             
             # 4. Detalle de Hallazgos, Log ID y Evidencias
@@ -443,16 +447,16 @@ if uploaded_file is not None:
             st.session_state.pdf_generated_path = None
 
         if st.button("📄 Generar Informe Ejecutivo PDF Profesional (SOC ADVISORY DAV)"):
-            with st.spinner("Compilando reporte A4 corporativo sin espacios vacíos..."):
+            with st.spinner("Compilando reporte A4 Multi-ISO corporativo..."):
                 st.session_state.pdf_generated_path = generar_pdf_consultoria(df_filtrado, file_name_original, file_hash)
-            st.success("¡Informe generado con éxito bajo estándares A4 ajustados!")
+            st.success("¡Informe generado con éxito bajo estándares Multi-ISO!")
 
         if st.session_state.pdf_generated_path and os.path.exists(st.session_state.pdf_generated_path):
             with open(st.session_state.pdf_generated_path, "rb") as f:
                 st.download_button(
                     label="⬇️ Descargar PDF Profesional para Cliente (SOC ADVISORY DAV)",
                     data=f,
-                    file_name="Informe_ISO27001_SOC_ADVISORY_DAV.pdf",
+                    file_name="Informe_MultiISO_SOC_ADVISORY_DAV.pdf",
                     mime="application/pdf"
                 )
                 
