@@ -520,32 +520,58 @@ if uploaded_file is not None:
                 ip_idx += 1
             pdf.ln(4)
 
-            # 7. Plan de Acción, Responsables y Recomendaciones de Mitigación
+            # 7. Plan de Acción, Responsables y Recomendaciones de Mitigación (DISTRIBUCIÓN OPTIMIZADA SIN TEXTO MONTADO)
             pdf.set_font("Arial", "B", 10)
             pdf.set_text_color(30, 27, 75)
             pdf.cell(0, 5, "7. Plan de Acción y Responsables de Mitigación", 0, 1)
             pdf.ln(1)
             
-            pdf.set_font("Arial", "B", 8)
+            pdf.set_font("Arial", "B", 7.5)
             pdf.set_fill_color(224, 231, 255)
-            pdf.cell(30, 5, " Horizonte", 1, 0, "C", fill=True)
-            pdf.cell(40, 5, "Responsable", 1, 0, "C", fill=True)
-            pdf.cell(65, 5, "Acciones de Mitigación", 1, 0, "L", fill=True)
-            pdf.cell(55, 5, "Marcos / Controles", 1, 1, "L", fill=True)
+            pdf.cell(28, 5, " Horizonte", 1, 0, "C", fill=True)
+            pdf.cell(35, 5, "Responsable", 1, 0, "C", fill=True)
+            pdf.cell(75, 5, "Acciones de Mitigación Detalladas", 1, 0, "L", fill=True)
+            pdf.cell(52, 5, "Marcos / Controles", 1, 1, "L", fill=True)
             
-            pdf.set_font("Arial", "", 7)
             planes_accion = [
-                ("Inmediato\n(0 - 24 h)", "Equipo SOC / CISO", f"Activar respuesta ante {criticos_cnt} eventos críticos. Aislar sistemas y revocar credenciales en menos de 1h.", "ISO 27001 (A.5.24)\nISO 27035 (Contención)"),
+                ("Inmediato\n(0 - 24 h)", "Equipo SOC / CISO", f"Activar respuesta ante {criticos_cnt} eventos críticos. Aislar sistemas y revocar credenciales en < 1h.", "ISO 27001 (A.5.24)\nISO 27035 (Contención)"),
                 ("Corto Plazo\n(1 - 7 días)", "Infraestructura TI", f"Revisar {medios_cnt} intentos fallidos, auditar PowerShell y forzar formación en seguridad.", "ISO 27001 (A.8.7)\nISO 27701 (Privacidad)"),
                 ("Mediano Plazo\n(7 - 30 días)", "Seguridad Accesos", f"Documentar {bajos_cnt} accesos fuera de horario e implementar controles temporales.", "ISO 27001 (A.9.4.2)\nISO 27035 (Erradicación)"),
                 ("Largo Plazo\n(30 - 90 d)", "Comité SGSI / TI", "Realizar análisis post-mortem semanal y hardening corporativo de servidores.", "ISO 27001 (Mejora Continua)")
             ]
             
             for hor, resp, desc_plan, ctrl in planes_accion:
-                pdf.cell(30, 9, hor, 1, 0, "C")
-                pdf.cell(40, 9, resp, 1, 0, "C")
-                pdf.cell(65, 9, desc_plan, 1, 0)
-                pdf.cell(55, 9, ctrl, 1, 1)
+                # Usamos celdas dinámicas multilínea con altura de 11mm para evitar solapamientos
+                x_start = pdf.get_x()
+                y_start = pdf.get_y()
+                
+                # Celda 1: Horizonte
+                pdf.set_font("Arial", "B", 7)
+                pdf.multi_cell(28, 5.5, hor, 1, "C")
+                y_after_1 = pdf.get_y()
+                
+                # Celda 2: Responsable
+                pdf.set_xy(x_start + 28, y_start)
+                pdf.set_font("Arial", "", 7)
+                pdf.multi_cell(35, 5.5, resp, 1, "C")
+                y_after_2 = pdf.get_y()
+                
+                # Celda 3: Acciones
+                pdf.set_xy(x_start + 28 + 35, y_start)
+                pdf.set_font("Arial", "", 6.5)
+                pdf.multi_cell(75, 3.7, desc_plan, 1, "L")
+                y_after_3 = pdf.get_y()
+                
+                # Celda 4: Controles
+                pdf.set_xy(x_start + 28 + 35 + 75, y_start)
+                pdf.font_size = 6.5
+                pdf.multi_cell(52, 5.5, ctrl, 1, "L")
+                y_after_4 = pdf.get_y()
+                
+                # Salto a la máxima altura generada en la fila
+                max_y = max(y_after_1, y_after_2, y_after_3, y_after_4)
+                pdf.set_xy(x_start, max_y)
+                
             pdf.ln(4)
             
             # 8. Detalle de Hallazgos y Log ID
