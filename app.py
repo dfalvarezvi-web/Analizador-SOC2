@@ -6,13 +6,13 @@ import tempfile
 
 # Configuración inicial de la página
 st.set_page_config(
-    page_title="SOC Advisory - Auditoría y Ciberseguridad",
+    page_title="SOC Advisory - Ciberseguridad & Threat Intel",
     page_icon="🛡️",
     layout="wide"
 )
 
 st.title("🛡️ Centro de Operaciones de Seguridad (SOC) | Consultoría Profesional")
-st.markdown("Plataforma avanzada de análisis forense, correlación de eventos con los 12 campos originales y gestión de incidentes.")
+st.markdown("Plataforma avanzada de análisis forense, correlación de los 6 vectores de ataque corporativos y gestión de incidentes.")
 
 # ----------------------------------------------------
 # 1. CARGA Y NORMALIZACIÓN DE DATOS
@@ -37,9 +37,9 @@ if uploaded_file is not None:
             st.dataframe(df, use_container_width=True)
             
         # ----------------------------------------------------
-        # 2. MOTOR DE CLASIFICACIÓN CON LOS 6 VECTORES DE ATAQUE
+        # 2. MOTOR DE CLASIFICACIÓN CON LOS 6 VECTORES DE ATAQUE PROFESIONALES
         # ----------------------------------------------------
-        def clasificar_vector_ataque(row):
+        def clasificar_6_vectores(row):
             desc = str(row.get('Event_Description', '')).lower()
             res = str(row.get('Result', '')).lower()
             cmd = str(row.get('Process_CommandLine', '')).lower()
@@ -48,7 +48,7 @@ if uploaded_file is not None:
             
             # 1. Fuerza Bruta
             if 'fail' in res or '4625' in event_id or 'failed' in desc or 'bad password' in desc:
-                return 'Fuerza Bruta', 'Alto', 'Intentos repetidos de autenticación fallida o credenciales incorrectas detectadas.'
+                return 'Fuerza Bruta', 'Alto', 'Intentos repetidos de autenticación fallida o credenciales incorrectas.'
             
             # 2. Escalamiento de Privilegios
             elif 'privileges' in desc or '4672' in event_id or 'administrators' in cmd or 'localgroup' in cmd:
@@ -79,7 +79,7 @@ if uploaded_file is not None:
                     return 'Otras Anomalías', 'Bajo', 'Actividad operativa rutinaria sin impacto crítico.'
 
         df_analisis = df.copy()
-        resultados = df_analisis.apply(clasificar_vector_ataque, axis=1)
+        resultados = df_analisis.apply(clasificar_6_vectores, axis=1)
         df_analisis['Vector_Ataque'] = [r[0] for r in resultados]
         df_analisis['Criticidad_Calculada'] = [r[1] for r in resultados]
         df_analisis['Explicacion_Tecnica'] = [r[2] for r in resultados]
@@ -106,9 +106,9 @@ if uploaded_file is not None:
         ]
 
         # ----------------------------------------------------
-        # 4. DASHBOARD EJECUTIVO Y ALERTAS DINÁMICAS
+        # 4. DASHBOARD DE CONTROL Y ALERTAS DINÁMICAS
         # ----------------------------------------------------
-        st.header("📊 4. Dashboard de Control y Frecuencia de Incidentes")
+        st.header("📊 4. Dashboard de Control y Métricas de Seguridad")
         
         total_logs = len(df_filtrado)
         criticos_cnt = len(df_filtrado[df_filtrado['Criticidad_Calculada'] == 'Crítico'])
@@ -117,7 +117,7 @@ if uploaded_file is not None:
         
         # Alertas dinámicas en tiempo real
         if criticos_cnt > 0:
-            st.error(f"🚨 **ALERTA CRÍTICA:** Se detectaron {criticos_cnt} eventos con vectores de riesgo crítico (Escalamiento de privilegios o Comandos maliciosos). Se exige contención inmediata.")
+            st.error(f"🚨 **ALERTA CRÍTICA:** Se detectaron {criticos_cnt} eventos con vectores de riesgo crítico (Escalamiento o Comandos maliciosos). Se exige contención inmediata.")
         elif altos_cnt > 0:
             st.warning(f"⚠️ **ADVERTENCIA DE SEGURIDAD:** Se registran {altos_cnt} eventos de nivel alto asociados a Fuerza Bruta o Movimiento Lateral.")
         else:
@@ -128,21 +128,37 @@ if uploaded_file is not None:
         col1.metric("Total Registros Filtrados", total_logs)
         col2.metric("Incidentes Críticos", criticos_cnt, delta_color="inverse")
         col3.metric("Incidentes Altos", altos_cnt)
-        col4.metric("Sistemas (Hosts) Afectados", hosts_afectados)
+        col4.metric("Sistemas Afectados", hosts_afectados)
+
+        # ----------------------------------------------------
+        # 5. MATRIZ DETALLADA CON LOS 12 CAMPOS ORIGINALES
+        # ----------------------------------------------------
+        st.header("📋 5. Detalle Completo de Registros, Log ID y Vectores Identificados")
+        st.dataframe(df_filtrado, use_container_width=True)
+
+        # ----------------------------------------------------
+        # 6. GRÁFICOS AL FINAL (CON DISTRIBUCIÓN Y LÍNEA DE TIEMPO)
+        # ----------------------------------------------------
+        st.header("📈 6. Análisis Visual y Tendencia Temporal")
         
-        # Gráficos Interactivos de Distribución y Línea de Tiempo
         col_g1, col_g2 = st.columns(2)
         
         with col_g1:
-            fig_bar = px.bar(
-                df_filtrado.groupby('Vector_Ataque').size().reset_index(name='Casos'),
-                x='Vector_Ataque',
-                y='Casos',
-                title='Número de Casos por Vector de Ataque',
+            fig_pie = px.pie(
+                df_filtrado, 
+                names='Vector_Ataque', 
+                title='Distribución de Casos por los 6 Vectores de Ataque',
                 color='Vector_Ataque',
-                color_discrete_sequence=px.colors.qualitative.Set2
+                color_discrete_map={
+                    'Fuerza Bruta': '#ffa15a', 
+                    'Escalamiento de Privilegios': '#ff4b4b', 
+                    'Comandos y Procesos': '#9b59b6', 
+                    'Movimiento Lateral': '#3498db',
+                    'Inicios Sospechosos': '#f1c40f',
+                    'Otras Anomalías': '#2ecc71'
+                }
             )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            st.plotly_chart(fig_pie, use_container_width=True)
             
         with col_g2:
             if 'Timestamp' in df_filtrado.columns and not df_filtrado.empty:
@@ -160,25 +176,19 @@ if uploaded_file is not None:
                     st.plotly_chart(fig_time, use_container_width=True)
 
         # ----------------------------------------------------
-        # 5. MATRIZ DETALLADA CON TODOS LOS CAMPOS ORIGINALES Y HALLAZGOS
+        # 7. EXPORTACIÓN DEL INFORME PROFESIONAL EN PDF (PARA CLIENTE)
         # ----------------------------------------------------
-        st.header("📋 5. Detalle Completo de Registros, Columnas Originales y Hallazgos")
-        st.dataframe(df_filtrado, use_container_width=True)
-
-        # ----------------------------------------------------
-        # 6. EXPORTACIÓN DEL INFORME PROFESIONAL EN PDF (PARA CLIENTE)
-        # ----------------------------------------------------
-        st.header("📥 6. Exportación de Entregable Ejecutivo y Técnico (PDF)")
+        st.header("📥 7. Exportación de Entregable Ejecutivo y Técnico (PDF)")
         
         def generar_pdf_consultoria(df_resumen):
             pdf = FPDF()
             pdf.add_page()
             
             # Encabezado formal del reporte
-            pdf.set_font("Arial", "B", 14)
-            pdf.cell(0, 8, "INFORME TECNICO Y EJECUTIVO DE CONSULTORIA SOC", 0, 1, "C")
+            pdf.set_font("Arial", "B", 13)
+            pdf.cell(0, 7, "INFORME TECNICO Y EJECUTIVO DE CONSULTORIA SOC", 0, 1, "C")
             pdf.set_font("Arial", "I", 8)
-            pdf.cell(0, 5, "Analisis Forense, Vectores de Ataque, Plan de Accion y Recomendaciones", 0, 1, "C")
+            pdf.cell(0, 5, "Analisis de Vectores de Ataque, Hallazgos por Log ID, Evidencias y Plan de Accion", 0, 1, "C")
             pdf.ln(4)
             
             # Metadatos
@@ -189,29 +199,29 @@ if uploaded_file is not None:
             
             # Sección 1: Número de Casos por Vector de Ataque
             pdf.set_font("Arial", "B", 9)
-            pdf.cell(0, 6, "1. Resumen de Casos y Metricas por Vector de Ataque", 0, 1)
+            pdf.cell(0, 6, "1. Resumen de Casos y Metricas por los 6 Vectores de Ataque", 0, 1)
             pdf.set_font("Arial", "", 8)
             resumen_vectores = df_resumen['Vector_Ataque'].value_counts()
             for vec, count in resumen_vectores.items():
                 pdf.cell(0, 5, f"- Vector [{vec}]: {count} casos identificados.", 0, 1)
             pdf.ln(3)
             
-            # Sección 2: Plan de Acción y Recomendaciones Enfocadas
+            # Sección 2: Plan de Acción y Recomendaciones Específicas
             pdf.set_font("Arial", "B", 9)
-            pdf.cell(0, 6, "2. Plan de Accion y Recomendaciones de Seguridad", 0, 1)
+            pdf.cell(0, 6, "2. Plan de Accion y Recomendaciones de Seguridad Corporativa", 0, 1)
             pdf.set_font("Arial", "", 8)
             plan_texto = (
                 "a) Mitigacion de Fuerza Bruta: Implementar politicas de bloqueo tras intentos fallidos y forzar MFA.\n"
-                "b) Control de Inicios y Movimiento Lateral: Auditar conexiones RDP y restringir recursos compartidos SMB.\n"
+                "b) Control de Movimiento Lateral e Inicios: Auditar conexiones RDP y restringir recursos compartidos SMB.\n"
                 "c) Bloqueo de Escalamiento y Comandos: Restringir scripts PowerShell no firmados y auditar grupos administrativos.\n"
                 "d) Contencion de Endpoints: Aislar preventivamente los equipos comprometidos identificados en los registros."
             )
             pdf.multi_cell(0, 4, plan_texto.encode('latin-1', 'replace').decode('latin-1'))
             pdf.ln(3)
             
-            # Sección 3: Detalle de Hallazgos, Evidencias y Explicación Técnica
+            # Sección 3: Detalle de Hallazgos, Log ID, Evidencias y Explicación Técnica
             pdf.set_font("Arial", "B", 9)
-            pdf.cell(0, 6, "3. Detalle de Hallazgos, Evidencias y Explicacion Tecnica", 0, 1)
+            pdf.cell(0, 6, "3. Detalle de Hallazgos, Log ID, Evidencias y Explicacion Tecnica", 0, 1)
             pdf.set_font("Arial", "", 7)
             
             for index, row in df_resumen.head(20).iterrows():
@@ -223,7 +233,7 @@ if uploaded_file is not None:
                 desc = str(row.get('Event_Description', 'N/A'))
                 expl = str(row.get('Explicacion_Tecnica', 'N/A'))
                 
-                linea = f"[{log_id}] Host: {host} | User: {user} | Vector: {vec} ({crit})\n Evidencia: {desc}\n Explicacion: {expl}"
+                linea = f"[Log ID: {log_id}] Host: {host} | User: {user} | Vector: {vec} ({crit})\n Evidencia: {desc}\n Explicacion Tecnica: {expl}"
                 pdf.multi_cell(0, 4, linea.encode('latin-1', 'replace').decode('latin-1'))
                 pdf.ln(2)
                 
@@ -238,7 +248,7 @@ if uploaded_file is not None:
                     st.download_button(
                         label="⬇️ Descargar PDF Profesional para Cliente",
                         data=f,
-                        file_name="Informe_Consultoria_SOC_Completo.pdf",
+                        file_name="Informe_Consultoria_SOC_Profesional.pdf",
                         mime="application/pdf"
                     )
             except Exception as pdf_err:
@@ -247,4 +257,4 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Error al procesar el archivo Excel. Detalles: {e}")
 else:
-    st.info("👈 Por favor, carga tu archivo de logs (`.xlsx`) en la barra lateral para iniciar el análisis.")
+    st.info("👈 Por favor, carga tu archivo de logs (`.xlsx`) en la barra lateral para iniciar el análisis con los 6 vectores.")
