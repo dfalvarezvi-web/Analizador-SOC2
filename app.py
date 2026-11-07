@@ -69,32 +69,63 @@ if uploaded_file is not None:
             st.dataframe(df.head(10), use_container_width=True)
             
         # ----------------------------------------------------
-        # 2. MOTOR DE CORRELACIÓN Y ALINEACIÓN ISO 27001
+        # 2. MOTOR DE CORRELACIÓN: 6 VECTORES Y ALINEACIÓN ISO 27001
         # ----------------------------------------------------
-        def clasificar_incidente(row):
+        def clasificar_vector_y_riesgo(row):
             sev = str(row.get('Severity', '')).lower()
             desc = str(row.get('Event_Description', '')).lower()
             cmd = str(row.get('Process_CommandLine', '')).lower()
             res = str(row.get('Result', '')).lower()
+            event_id = str(row.get('Event_ID', ''))
             
-            if 'high' in sev or 'critical' in sev or any(k in desc for k in ['rce', 'malware', 'ransomware', 'exploit']) or any(c in cmd for c in ['powershell', 'cmd.exe /c', 'invoke-webrequest', 'base64']):
-                return 'Crítico', 'Ejecución de código malicioso o explotación. Controles ISO 27001: A.8.7 (Malware) y A.8.16 (Monitoreo).'
-            elif 'medium' in sev or 'warning' in sev or 'fail' in res or 'denied' in res:
-                return 'Alto', 'Fallo de autenticación reiterado o acceso denegado. Impacto en Control ISO 27001: A.9.4.2 / A.5.17 (Accesos).'
-            elif 'informational' in sev and ('logon' in desc or 'process' in desc):
-                return 'Medio', 'Evento operativo relevante. Trazabilidad requerida por Control ISO 27001: A.8.15 (Registro de Eventos).'
+            # Clasificación de Vectores Profesionales
+            if 'fail' in res or '4625' in event_id or 'failed' in desc or 'bad password' in desc:
+                vector = 'Fuerza Bruta'
+            elif 'privileges' in desc or '4672' in event_id or 'administrators' in cmd or 'localgroup' in cmd:
+                vector = 'Escalamiento de Privilegios'
+            elif 'powershell' in cmd or 'cmd.exe' in cmd or 'process' in desc or '4688' in event_id or 'archive' in desc:
+                vector = 'Comandos y Procesos'
+            elif 'rdp' in desc or 'logontype=10' in desc or '5140' in event_id or 'share' in desc or 'lateral' in desc:
+                vector = 'Movimiento Lateral'
+            elif 'logontype=3' in desc or ('success' in res and ('logon' in desc or '4624' in event_id)):
+                vector = 'Inicios Sospechosos'
             else:
-                return 'Bajo', 'Actividad rutinaria sin impacto crítico en la infraestructura ni desviaciones del SGSI.'
+                vector = 'Otras Anomalías'
+
+            # Criticidad e Impacto ISO 27001
+            if vector in ['Escalamiento de Privilegios', 'Comandos y Procesos'] and ('high' in sev or 'critical' in sev or 'powershell' in cmd):
+                criticidad = 'Crítico'
+                justificacion = f"Vector [{vector}]: Ejecución de código malicioso o privilegios elevados. Controles ISO 27001: A.8.7 (Malware) y A.8.16 (Monitoreo)."
+            elif vector in ['Fuerza Bruta', 'Movimiento Lateral'] or 'fail' in res or 'denied' in res:
+                criticidad = 'Alto'
+                justificacion = f"Vector [{vector}]: Fallo de autenticación o acceso lateral relevante. Control ISO 27001: A.9.4.2 / A.5.17 (Accesos)."
+            elif vector == 'Inicios Sospechosos' or 'informational' in sev:
+                criticidad = 'Medio'
+                justificacion = f"Vector [{vector}]: Evento operativo relevante. Trazabilidad requerida por Control ISO 27001: A.8.15 (Registro de Eventos)."
+            else:
+                criticidad = 'Bajo'
+                justificacion = f"Vector [{vector}]: Actividad rutinaria sin impacto crítico en la infraestructura."
+
+            return vector, criticidad, justificacion
 
         df_analisis = df.copy()
-        resultados = df_analisis.apply(clasificar_incidente, axis=1)
-        df_analisis['Criticidad_Consultoria'] = [r[0] for r in resultados]
-        df_analisis['Justificacion_Tecnica'] = [r[1] for r in resultados]
+        resultados = df_analisis.apply(clasificar_vector_y_riesgo, axis=1)
+        df_analisis['Vector_Ataque'] = [r[0] for r in resultados]
+        df_analisis['Criticidad_Consultoria'] = [r[1] for r in resultados]
+        df_analisis['Justificacion_Tecnica'] = [r[2] for r in resultados]
 
         # ----------------------------------------------------
         # 3. FILTROS INTERACTIVOS DE CONSULTORÍA
         # ----------------------------------------------------
         st.sidebar.header("⚙️ 3. Filtros de Auditoría")
+        
+        vectores_disponibles = df_analisis['Vector_Ataque'].unique().tolist()
+        vectores_sel = st.sidebar.multiselect(
+            "Filtrar por Vector de Ataque:",
+            options=vectores_disponibles,
+            default=vectores_disponibles
+        )
+
         severidades_sel = st.sidebar.multiselect(
             "Filtrar por Criticidad:",
             options=['Crítico', 'Alto', 'Medio', 'Bajo'],
@@ -104,11 +135,12 @@ if uploaded_file is not None:
         hosts_disponibles = df_analisis['Hostname'].unique().tolist() if 'Hostname' in df_analisis.columns else []
         hosts_sel = st.sidebar.multiselect("Filtrar por Hostname:", options=hosts_disponibles, default=hosts_disponibles)
         
-        if not hosts_sel or not severidades_sel:
-            st.warning("⚠️ Por favor, selecciona al menos una criticidad y un host en la barra lateral.")
+        if not hosts_sel or not severidades_sel or not vectores_sel:
+            st.warning("⚠️ Por favor, selecciona al menos un vector, una criticidad y un host en la barra lateral.")
             st.stop()
 
         df_filtrado = df_analisis[
+            (df_analisis['Vector_Ataque'].isin(vectores_sel)) &
             (df_analisis['Criticidad_Consultoria'].isin(severidades_sel)) &
             (df_analisis['Hostname'].isin(hosts_sel))
         ]
@@ -118,7 +150,7 @@ if uploaded_file is not None:
         # ----------------------------------------------------
         st.markdown("---")
         st.subheader("📑 Memoria Técnica y Detalle del Análisis Realizado")
-        st.markdown("El presente análisis evalúa la telemetría y los registros de eventos de seguridad (SIEM) mediante un motor de correlación heurística basado en matrices de riesgo corporativas y marcos de referencia internacionales como **MITRE ATT&CK** y **ISO/IEC 27001:2022**.")
+        st.markdown("El presente análisis evalúa la telemetría y los registros de eventos de seguridad (SIEM) evaluando **los 6 Vectores de Ataque Profesionales** mediante un motor heurístico alineado con **MITRE ATT&CK** e **ISO/IEC 27001:2022**.")
         st.markdown("---")
 
         # ----------------------------------------------------
@@ -129,6 +161,8 @@ if uploaded_file is not None:
         total_logs = len(df_filtrado)
         criticos_cnt = len(df_filtrado[df_filtrado['Criticidad_Consultoria'] == 'Crítico'])
         altos_cnt = len(df_filtrado[df_filtrado['Criticidad_Consultoria'] == 'Alto'])
+        medios_cnt = len(df_filtrado[df_filtrado['Criticidad_Consultoria'] == 'Medio'])
+        bajos_cnt = len(df_filtrado[df_filtrado['Criticidad_Consultoria'] == 'Bajo'])
         hosts_comprometidos = df_filtrado[df_filtrado['Criticidad_Consultoria'].isin(['Crítico', 'Alto'])]['Hostname'].nunique()
         
         if criticos_cnt > 0:
@@ -153,7 +187,7 @@ if uploaded_file is not None:
 
         col_g1, col_g2 = st.columns(2)
         with col_g1:
-            fig_pie = px.pie(df_filtrado, names='Criticidad_Consultoria', title='Distribución Porcentual de Riesgo', color='Criticidad_Consultoria', color_discrete_map=color_palette)
+            fig_pie = px.pie(df_filtrado, names='Vector_Ataque', title='Distribución por los 6 Vectores de Ataque', color_discrete_sequence=px.colors.qualitative.Set2)
             fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
             st.plotly_chart(fig_pie, use_container_width=True)
             
@@ -162,8 +196,8 @@ if uploaded_file is not None:
                 df_freq = df_filtrado.dropna(subset=['Timestamp']).copy()
                 if not df_freq.empty:
                     df_freq['Time_Group'] = df_freq['Timestamp'].dt.floor('h')
-                    df_freq_grouped = df_freq.groupby(['Time_Group', 'Criticidad_Consultoria']).size().reset_index(name='Frecuencia')
-                    fig_time = px.line(df_freq_grouped, x='Time_Group', y='Frecuencia', color='Criticidad_Consultoria', title='Línea de Tiempo y Frecuencia de Incidentes', color_discrete_map=color_palette)
+                    df_freq_grouped = df_freq.groupby(['Time_Group', 'Vector_Ataque']).size().reset_index(name='Frecuencia')
+                    fig_time = px.line(df_freq_grouped, x='Time_Group', y='Frecuencia', color='Vector_Ataque', title='Línea de Tiempo Temporal de Incidentes')
                     fig_time.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color='white')
                     st.plotly_chart(fig_time, use_container_width=True)
 
@@ -173,20 +207,20 @@ if uploaded_file is not None:
         with st.expander("ℹ️ Guía Ejecutiva: Interpretación de Niveles de Riesgo y Medidas ISO 27001"):
             st.markdown("""
             ### 🚨 1. Riesgo Crítico (Respuesta Inmediata: 0 - 24 h)
-            * **Implica:** Evidencia clara de compromiso de activos, ejecución remota de código (RCE) o actividad maliciosa activa.
-            * **Medidas ISO 27001:** **A.5.24 (Gestión de Incidentes)** y **A.8.7 (Protección contra Malware)** — Aislamiento del host y revocación de credenciales.
+            * **Implica:** Evidencia clara de compromiso de activos, ejecución remota de código o escalamiento de privilegios.
+            * **Medidas ISO 27001:** **A.5.24 (Gestión de Incidentes)** y **A.8.7 (Protección contra Malware)**.
 
             ### ⚠️ 2. Riesgo Alto (Respuesta a Corto Plazo: 1 - 7 días)
-            * **Implica:** Anomalías operativas significativas que sugieren intentos de ataque o vectores de entrada fallidos.
-            * **Medidas ISO 27001:** **A.5.17 (Autenticación)** y **A.8.16 (Monitoreo)** — Bloqueo de IPs sospechosas y forzado de MFA.
+            * **Implica:** Fuerza bruta o movimiento lateral detectado en la red.
+            * **Medidas ISO 27001:** **A.5.17 (Autenticación)** y **A.8.16 (Monitoreo)**.
 
             ### 🟣 3. Riesgo Medio (Respuesta a Mediano Plazo: 7 - 30 días)
-            * **Implica:** Operaciones administrativas relevantes que requieren auditoría y trazabilidad periódica.
-            * **Medidas ISO 27001:** **A.8.15 (Registro de Eventos)** — Trazabilidad de identificadores de usuario e IP de origen.
+            * **Implica:** Inicios sospechosos u operaciones administrativas relevantes.
+            * **Medidas ISO 27001:** **A.8.15 (Registro de Eventos)**.
 
             ### 🟢 4. Riesgo Bajo (Monitoreo Continuo)
-            * **Implica:** Operación habitual y rutinaria dentro de la línea base esperada de la infraestructura.
-            * **Medidas ISO 27001:** **A.8.16 (Actividad de Monitoreo)** — Alimentación del repositorio de logs para validación de patrones.
+            * **Implica:** Actividad rutinaria dentro de la línea base esperada.
+            * **Medidas ISO 27001:** **A.8.16 (Actividad de Monitoreo)**.
             """)
 
         # ----------------------------------------------------
@@ -198,11 +232,11 @@ if uploaded_file is not None:
         if busqueda_justificacion:
             df_vista_tabla = df_vista_tabla[df_vista_tabla['Justificacion_Tecnica'].str.contains(busqueda_justificacion, case=False, na=False)]
 
-        columnas_vista = [col for col in ['Log_ID', 'Timestamp', 'Hostname', 'User', 'Source_IP', 'Event_Description', 'Severity', 'Criticidad_Consultoria', 'Justificacion_Tecnica'] if col in df_vista_tabla.columns]
+        columnas_vista = [col for col in ['Log_ID', 'Timestamp', 'Hostname', 'User', 'Source_IP', 'Vector_Ataque', 'Event_Description', 'Severity', 'Criticidad_Consultoria', 'Justificacion_Tecnica'] if col in df_vista_tabla.columns]
         st.dataframe(df_vista_tabla[columnas_vista], use_container_width=True)
 
         # ----------------------------------------------------
-        # 7. GENERACIÓN DE INFORME PDF CORREGIDO (ESPACIADO Y DISEÑO A4)
+        # 7. GENERACIÓN DE INFORME PDF PROFESIONAL CON GRÁFICOS AL FINAL
         # ----------------------------------------------------
         st.header("📥 Exportación de Entregable Ejecutivo para Cliente")
         
@@ -240,6 +274,7 @@ if uploaded_file is not None:
             pdf.cell(0, 4, f"Fecha de Emisión: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M')} | Marco: ISO/IEC 27001:2022", 0, 1, "L")
             pdf.ln(2)
             
+            # Metadata Box
             pdf.set_fill_color(245, 243, 255)
             y_meta = pdf.get_y()
             pdf.rect(10, y_meta, 190, 15, 'F')
@@ -247,82 +282,109 @@ if uploaded_file is not None:
             pdf.set_font("Arial", "B", 7.5)
             pdf.set_text_color(30, 27, 75)
             pdf.cell(90, 4, f"Artefacto: {nombre_log[:45]}", 0, 0)
-            pdf.cell(95, 4, f"Total Registros: {len(df_resumen)}", 0, 1)
+            pdf.cell(95, 4, f"Total Casos Analizados: {len(df_resumen)} (Críticos: {criticos_cnt}, Altos: {altos_cnt}, Medios: {medios_cnt}, Bajos: {bajos_cnt})", 0, 1)
             pdf.set_x(12)
             pdf.cell(185, 4, f"Hash SHA-256: {hash_log}", 0, 1)
             pdf.set_y(y_meta + 18)
             
+            # 1. Resumen Ejecutivo
             pdf.set_font("Arial", "B", 9)
             pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 5, "1. Resumen Ejecutivo y Detalle del Análisis Realizado", 0, 1)
+            pdf.cell(0, 5, "1. Resumen Ejecutivo y Desglose de Casos por Riesgos", 0, 1)
             pdf.set_font("Arial", "", 7.5)
             pdf.set_text_color(50, 50, 50)
-            resumen_texto = f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre el archivo '{nombre_log}'. Se detectaron {criticos_cnt} eventos críticos y {altos_cnt} anomalías operativas. El análisis coteja la telemetría con controles normativos para mitigar desvíos del SGSI y riesgos de explotación."
+            resumen_texto = f"Mediante SOC ADVISORY DAV, se completó la auditoría forense sobre '{nombre_log}'. Se analizaron {len(df_resumen)} casos divididos en riesgos: {criticos_cnt} Críticos, {altos_cnt} Altos, {medios_cnt} Medios y {bajos_cnt} Bajos. El análisis evalúa los 6 Vectores de Ataque Profesionales para mitigar desvíos del SGSI."
             pdf.multi_cell(0, 4, resumen_texto.encode('latin-1', 'replace').decode('latin-1'))
             pdf.ln(3)
             
-            pie_path = None
-            try:
-                pdf.set_font("Arial", "B", 9)
-                pdf.set_text_color(30, 27, 75)
-                pdf.cell(0, 5, "2. Análisis Estadístico y Distribución de Riesgos", 0, 1)
-                
-                fig, ax = plt.subplots(figsize=(4, 1.8))
-                counts = df_resumen['Criticidad_Consultoria'].value_counts()
-                chart_colors = ['#eab308', '#a855f7', '#7c3aed', '#6b21a8'][:len(counts)]
-                ax.pie(counts, labels=counts.index, autopct='%1.1f%%', colors=chart_colors, textprops={'fontsize': 7})
-                
-                pie_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
-                plt.savefig(pie_path, bbox_inches='tight', dpi=180)
-                plt.close(fig)
-                
-                img_y = pdf.get_y() + 1
-                pdf.image(pie_path, x=60, y=img_y, w=90)
-                pdf.set_y(img_y + 36)
-            except Exception:
-                pdf.ln(2)
-
-            if pie_path and os.path.exists(pie_path):
-                try: os.unlink(pie_path)
-                except: pass
-
+            # 2. Resumen por Vectores de Ataque
             pdf.set_font("Arial", "B", 9)
             pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 5, "3. Plan de Acción, Tiempos y Controles ISO/IEC 27001", 0, 1)
+            pdf.cell(0, 5, "2. Resumen de Casos y Métricas por los 6 Vectores de Ataque", 0, 1)
+            pdf.set_font("Arial", "", 7.5)
+            vector_counts = df_resumen['Vector_Ataque'].value_counts()
+            for vec, count in vector_counts.items():
+                pdf.cell(0, 4, f"- Vector [{vec}]: {count} casos identificados.", 0, 1)
+            pdf.ln(3)
+
+            # 3. Plan de Acción y Recomendaciones
+            pdf.set_font("Arial", "B", 9)
+            pdf.set_text_color(30, 27, 75)
+            pdf.cell(0, 5, "3. Plan de Acción y Recomendaciones de Seguridad Corporativa", 0, 1)
             pdf.ln(1)
             
             pdf.set_font("Arial", "B", 7.5)
             pdf.set_fill_color(230, 225, 250)
-            pdf.cell(45, 5, "Plazo / Horizonte", 1, 0, "C", fill=True)
-            pdf.cell(80, 5, "Acciones de Mitigación / Medida", 1, 0, "C", fill=True)
+            pdf.cell(40, 5, "Horizonte", 1, 0, "C", fill=True)
+            pdf.cell(85, 5, "Acciones de Mitigación / Medida", 1, 0, "C", fill=True)
             pdf.cell(65, 5, "Control ISO 27001:2022", 1, 1, "C", fill=True)
             
             pdf.set_font("Arial", "", 7)
-            pdf.cell(45, 5, "Inmediato (0 - 24 h)", 1, 0)
-            pdf.cell(80, 5, "Aislamiento de hosts y revocación de credenciales.", 1, 0)
+            pdf.cell(40, 5, "Inmediato (0 - 24 h)", 1, 0)
+            pdf.cell(85, 5, "Aislamiento de hosts y revocación de credenciales comprometidas.", 1, 0)
             pdf.cell(65, 5, "Control A.5.24 (Gestión de Incidentes)", 1, 1)
             
-            pdf.cell(45, 5, "Corto Plazo (1 - 7 días)", 1, 0)
-            pdf.cell(80, 5, "Auditoría de comandos y hardening perimetral.", 1, 0)
+            pdf.cell(40, 5, "Corto Plazo (1 - 7 días)", 1, 0)
+            pdf.cell(85, 5, "Auditoría de comandos y mitigación perimetral (RDP/SMB).", 1, 0)
             pdf.cell(65, 5, "Controles A.8.7 y A.8.16 (Monitoreo)", 1, 1)
             
-            pdf.cell(45, 5, "Largo Plazo (30 - 90 días)", 1, 0)
-            pdf.cell(80, 5, "Mínimo privilegio y automatización SIEM.", 1, 0)
+            pdf.cell(40, 5, "Largo Plazo (30 - 90 días)", 1, 0)
+            pdf.cell(85, 5, "Principio de mínimo privilegio y automatización SIEM.", 1, 0)
             pdf.cell(65, 5, "Controles A.5.17 y A.9.12 (Accesos)", 1, 1)
             pdf.ln(3)
             
+            # 4. Detalle de Hallazgos, Log ID y Evidencias
             pdf.set_font("Arial", "B", 9)
             pdf.set_text_color(30, 27, 75)
-            pdf.cell(0, 5, "4. Principales Hallazgos Forenses (Top Registros)", 0, 1)
+            pdf.cell(0, 5, "4. Detalle de Hallazgos, Log ID, Evidencias y Explicación Técnica", 0, 1)
             pdf.set_font("Arial", "", 6.5)
             
-            for _, row in df_resumen.head(10).iterrows():
+            for _, row in df_resumen.head(15).iterrows():
                 log_id = str(row.get('Log_ID', 'N/A'))
                 host = str(row.get('Hostname', 'N/A'))
+                vec = str(row.get('Vector_Ataque', 'N/A'))
                 crit = str(row.get('Criticidad_Consultoria', 'N/A'))
+                desc = str(row.get('Event_Description', 'N/A'))
                 just = str(row.get('Justificacion_Tecnica', 'N/A'))
-                linea = f"[{log_id}] Host: {host} | Nivel: {crit} - {just}"
-                pdf.cell(0, 3.8, linea.encode('latin-1', 'replace').decode('latin-1'), 0, 1)
+                
+                linea = f"[Log ID: {log_id}] Host: {host} | Vector: {vec} ({crit})\n Evidencia: {desc}\n Explicacion: {just}"
+                pdf.multi_cell(0, 3.5, linea.encode('latin-1', 'replace').decode('latin-1'))
+                pdf.ln(1)
+
+            # 5. ANEXO GRÁFICO AL FINAL (Para evitar problemas de espacios)
+            pdf.add_page()
+            pdf.set_font("Arial", "B", 10)
+            pdf.set_text_color(30, 27, 75)
+            pdf.cell(0, 6, "5. Anexo Gráfico y Distribución de Incidentes", 0, 1, "L")
+            pdf.ln(2)
+            
+            pie_path = None
+            try:
+                fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(7, 2.5))
+                
+                counts_crit = df_resumen['Criticidad_Consultoria'].value_counts()
+                colors_crit = ['#eab308', '#facc15', '#a855f7', '#6b21a8'][:len(counts_crit)]
+                ax1.pie(counts_crit, labels=counts_crit.index, autopct='%1.1f%%', colors=colors_crit, textprops={'fontsize': 6})
+                ax1.set_title("Distribución por Riesgo", fontsize=8)
+                
+                counts_vec = df_resumen['Vector_Ataque'].value_counts()
+                ax2.barh(counts_vec.index, counts_vec.values, color='#7c3aed')
+                ax2.set_title("Casos por Vector de Ataque", fontsize=8)
+                ax2.tick_params(axis='y', labelsize=6)
+                ax2.tick_params(axis='x', labelsize=6)
+                
+                plt.tight_layout()
+                pie_path = tempfile.NamedTemporaryFile(delete=False, suffix=".png").name
+                plt.savefig(pie_path, bbox_inches='tight', dpi=180)
+                plt.close(fig)
+                
+                pdf.image(pie_path, x=20, y=pdf.get_y() + 5, w=170)
+            except Exception as e:
+                pdf.cell(0, 5, f"No se pudo renderizar el anexo gráfico: {str(e)}", 0, 1)
+
+            if pie_path and os.path.exists(pie_path):
+                try: os.unlink(pie_path)
+                except: pass
                 
             tmp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
             pdf.output(tmp_file.name)
@@ -332,7 +394,7 @@ if uploaded_file is not None:
             st.session_state.pdf_generated_path = None
 
         if st.button("📄 Generar Informe Ejecutivo PDF Profesional (SOC ADVISORY DAV)"):
-            with st.spinner("Compilando reporte A4 corporativo, optimizando espacios y generando PDF..."):
+            with st.spinner("Compilando reporte A4 corporativo con vectores y gráficos al final..."):
                 st.session_state.pdf_generated_path = generar_pdf_consultoria(df_filtrado, file_name_original, file_hash)
             st.success("¡Informe generado con éxito bajo estándares A4 ajustados!")
 
